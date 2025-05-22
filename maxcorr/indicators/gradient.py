@@ -105,8 +105,7 @@ class GradientIndicator(CopulaIndicator):
         n, da, db = self.backend.len(a), self.f_dimension, self.g_dimension
         a_cast = self.training_backend.reshape(self.training_backend.cast(a, dtype=float), shape=(n, da))
         b_cast = self.training_backend.reshape(self.training_backend.cast(b, dtype=float), shape=(n, db))
-        for _ in range(self._epochs_start if self.num_calls == 0 else self._epochs_successive):
-            self._train_fn(a_cast, b_cast)
+        self._train_fn(a_cast, b_cast)
         # compute the indicator value as the (mean) vector product
         value = self._hgr(a=a_cast, b=b_cast)
         # return the result instance cast to the correct type
@@ -138,24 +137,29 @@ class GradientIndicator(CopulaIndicator):
         return self.training_backend.mean(fa * gb)
 
     def _train_torch(self, a, b) -> None:
-        self._optF.zero_grad()
-        self._optG.zero_grad()
-        try:
-            loss = -self._hgr(a, b)
-            loss.backward()
-            self._optF.step()
-            self._optG.step()
-        except RuntimeError:
-            pass
+        # detach vectors to avoid conflict when used as loss regularizer
+        a = a.detach()
+        b = b.detach()
+        for _ in range(self._epochs_start if self.num_calls == 0 else self._epochs_successive):
+            self._optF.zero_grad()
+            self._optG.zero_grad()
+            try:
+                loss = -self._hgr(a, b)
+                loss.backward()
+                self._optF.step()
+                self._optG.step()
+            except RuntimeError:
+                pass
 
     def _train_tensorflow(self, a, b) -> None:
         import tensorflow as tf
-        with tf.GradientTape(persistent=True) as tape:
-            loss = -self._hgr(a, b)
-        f_grads = tape.gradient(loss, self._modelF.trainable_weights)
-        g_grads = tape.gradient(loss, self._modelG.trainable_weights)
-        self._optF.apply_gradients(zip(f_grads, self._modelF.trainable_weights))
-        self._optG.apply_gradients(zip(g_grads, self._modelG.trainable_weights))
+        for _ in range(self._epochs_start if self.num_calls == 0 else self._epochs_successive):
+            with tf.GradientTape(persistent=True) as tape:
+                loss = -self._hgr(a, b)
+            f_grads = tape.gradient(loss, self._modelF.trainable_weights)
+            g_grads = tape.gradient(loss, self._modelG.trainable_weights)
+            self._optF.apply_gradients(zip(f_grads, self._modelF.trainable_weights))
+            self._optG.apply_gradients(zip(g_grads, self._modelG.trainable_weights))
 
 
 class NeuralIndicator(GradientIndicator):
