@@ -3,55 +3,134 @@
 # publish using 'hatch publish'
 
 [build-system]
-requires = ['hatchling']
-build-backend = 'hatchling.build'
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project]
-name = 'maxcorr'
-version = '0.1.2'
-requires-python = '>=3.8'
-dependencies = [
-    'numpy >= 1.24',
-    'pandas >= 1.4',
-    'scikit-learn >= 1.1',
-    'scipy >= 1.10'
-]
-description = 'MaxCorr: A Package for Maximal Correlation Indicators'
-readme = { file = 'README.md', content-type = 'text/markdown' }
+name = "maxcorr"
+version = "0.1.2"
+description = "MaxCorr: A Package for Maximal Correlation Indicators"
+readme = { file = "README.md", content-type = "text/markdown" }
+requires-python = ">=3.11"
+license = { text = "MIT" }
+
 authors = [
-    { name = 'Luca Giuliani', email = 'luca.giuliani13@unibo.it' },
-    { name = 'University of Bologna - DISI' }
+    { name = "Luca Giuliani", email = "luca.giuliani13@unibo.it" },
+    { name = "University of Bologna - DISI" }
 ]
 maintainers = [
-    { name = 'Luca Giuliani', email = 'luca.giuliani13@unibo.it' }
+    { name = "Luca Giuliani", email = "luca.giuliani13@unibo.it" },
 ]
-license = 'MIT'
+
+contributors = [
+    { name = "Taleb Zarhesh", email = "taleb.zarhesh@studio.unibo.it" },
+]
+
+keywords = [
+    "correlation",
+    "maximal-correlation",
+    "non-linear-correlation",
+    "data-analysis",
+]
+
 classifiers = [
-    'Development Status :: 3 - Alpha',
-    'License :: OSI Approved :: MIT License',
-    'Programming Language :: Python',
-    'Operating System :: OS Independent'
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+
+# Updated dependencies with modern versions
+dependencies = [
+    "ipykernel>=7.2.0",
+    "numpy>=1.26",
+    "pandas>=2.0",
+    "scikit-learn>=1.3",
+    "scipy>=1.11",
 ]
 
 [project.optional-dependencies]
-torch = [
-    'torch >= 1.12'
-]
-tensorflow = [
-    'tensorflow >= 2.13'
-]
+torch = ["torch>=2.0"]
+tensorflow = ["tensorflow[and-cuda]>=2.16"]
 lattice = [
-    'tensorflow >= 2.13',
-    'tensorflow-lattice >= 2.0.9'
+    "tensorflow[and-cuda]>=2.13",
+    "tensorflow-lattice>=2.0.9",
 ]
 full = [
-    'torch >= 1.12',
-    'tensorflow >= 2.13',
-    'tensorflow-lattice >= 2.0.9'
+    "torch>=2.0",
+    "tensorflow[and-cuda]>=2.16",
+    "tensorflow-lattice>=2.0.9",
 ]
 
-[tool.hatch.build.targets.wheel]
-packages = ['maxcorr']
+
+# Development dependencies (for profiling & testing)
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.1",
+    "psutil>=5.9",  # For profiling
+    "scipy-stubs>=1.17.1.4",
+    "seaborn>=0.13.2",
+    "tqdm>=4.67.3",
+]
+
+profiling = [
+    "psutil>=5.9",
+    "matplotlib>=3.8",
+    "pandas>=2.0",
+    "tensorflow[and-cuda]>=2.15",
+]
+
 
 [project.urls]
-Repository = 'https://github.com/giuluck/maxcorr'
+Homepage = "https://github.com/giuluck/maxcorr"
+Repository = "https://github.com/giuluck/maxcorr"
+"Bug Tracker" = "https://github.com/giuluck/maxcorr/issues"
+Documentation = "https://github.com/giuluck/maxcorr#readme"
+
+# ============================================================
+# BUILD SYSTEM - for hatchling (compatible with uv)
+# ============================================================
+
+[tool.hatch.build.targets.wheel]
+packages = ["maxcorr"]
+
+# ============================================================
+# TOOL CONFIGURATIONS
+# ============================================================
+
+# Ruff (fast linter)
+[tool.ruff]
+target-version = "py311"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "RUF"]
+ignore = ["E501"]  # Line too long (handle via formatting)
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = ["classmethod"]
+
+# Pytest configuration
+[tool.pytest.ini_options]
+testpaths = ["test"]
+python_files = ["test_*.py"]
+addopts = "-v --cov=maxcorr --cov-report=term-missing --cov-report=html"
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["maxcorr"]
+omit = [
+    "*/tests/*",
+    "*/test_*.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

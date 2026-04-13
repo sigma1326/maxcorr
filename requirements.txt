@@ -1,6 +1,0 @@
-hatch
-jupyter
-matplotlib
-pytest
-seaborn
-tqdm
