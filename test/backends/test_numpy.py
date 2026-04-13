@@ -7,7 +7,6 @@ from test.backends.test_backend import TestBackend
 
 
 class TestNumpyBackend(TestBackend):
-
     @property
     def backend(self) -> Backend:
         return NumpyBackend()

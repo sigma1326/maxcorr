@@ -4,13 +4,18 @@ from typing import Any, Type, Union, Iterable
 import numpy as np
 
 from maxcorr.backends import Backend
+from maxcorr.cuda_path_utils import setup_cuda_paths
 
 
 class TorchBackend(Backend):
     def __init__(self):
-        if importlib.util.find_spec('torch') is None:
-            raise ModuleNotFoundError("TorchBackend requires 'torch', please install it via 'pip install torch'")
+        if importlib.util.find_spec("torch") is None:
+            raise ModuleNotFoundError(
+                "TorchBackend requires 'torch', please install it via 'pip install torch'"
+            )
+        setup_cuda_paths()
         import torch
+
         super(TorchBackend, self).__init__(backend=torch)
 
     @property
@@ -24,7 +29,11 @@ class TorchBackend(Backend):
         # torch uses 'torch.float64' as default type for 'float', use 'torch.float32' instead for compatibility
         dtype = self._backend.float32 if dtype is float else dtype
         # if the vector is already a torch tensor, simply change the dtype to avoid warnings
-        return v.to(dtype=dtype) if self.comply(v) else self._backend.tensor(v, dtype=dtype)
+        return (
+            v.to(dtype=dtype)
+            if self.comply(v)
+            else self._backend.tensor(v, dtype=dtype)
+        )
 
     def item(self, v) -> float:
         return float(v.item())
@@ -62,4 +71,4 @@ class TorchBackend(Backend):
     # noinspection PyPep8Naming
     def lstsq(self, A, b) -> Any:
         # the 'gelsd' driver allows to have both more precise and more reproducible results
-        return self._backend.linalg.lstsq(A, b, driver='gelsd')[0]
+        return self._backend.linalg.lstsq(A, b, driver="gelsd")[0]

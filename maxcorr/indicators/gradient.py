@@ -5,11 +5,18 @@ the code of the paper: https://github.com/fairml-research/HGR_NN/tree/main.
 
 It also includes a custom variant of gradient-based indicator using Tensorflow Lattice.
 """
+
 import importlib.util
 from abc import abstractmethod
 from typing import Any, Iterable, Optional, Tuple, Callable, Union, Dict
 
-from maxcorr.backends import Backend, NumpyBackend, TorchBackend, TensorflowBackend
+from maxcorr.backends import (
+    Backend,
+    NumpyBackend,
+    TorchBackend,
+    TensorflowBackend,
+)
+from maxcorr.cuda_path_utils import setup_cuda_paths
 from maxcorr.indicators.indicator import CopulaIndicator
 from maxcorr.typing import BackendType, SemanticsType, AlgorithmType
 
@@ -17,15 +24,17 @@ from maxcorr.typing import BackendType, SemanticsType, AlgorithmType
 class GradientIndicator(CopulaIndicator):
     """Indicator computed using two machine learning models trained using gradient-based computation."""
 
-    def __init__(self,
-                 backend: Union[Backend, BackendType],
-                 semantics: SemanticsType,
-                 f: Tuple[Any, Any, int],
-                 g: Tuple[Any, Any, int],
-                 train_fn: Callable[[Any, Any], None],
-                 epochs_start: int,
-                 epochs_successive: Optional[int],
-                 eps: float):
+    def __init__(
+        self,
+        backend: Union[Backend, BackendType],
+        semantics: SemanticsType,
+        f: Tuple[Any, Any, int],
+        g: Tuple[Any, Any, int],
+        train_fn: Callable[[Any, Any], None],
+        epochs_start: int,
+        epochs_successive: Optional[int],
+        eps: float,
+    ):
         """
         :param backend:
             The backend to use to compute the indicator, or its alias.
@@ -51,7 +60,9 @@ class GradientIndicator(CopulaIndicator):
         :param eps:
             The epsilon value used to avoid division by zero in case of null standard deviation.
         """
-        super(GradientIndicator, self).__init__(backend=backend, semantics=semantics, eps=eps)
+        super(GradientIndicator, self).__init__(
+            backend=backend, semantics=semantics, eps=eps
+        )
         self._modelF, self._optF, self._dimF = f
         self._modelG, self._optG, self._dimG = g
         self._epochs_start: int = epochs_start
@@ -90,7 +101,11 @@ class GradientIndicator(CopulaIndicator):
         a = self.training_backend.reshape(a, shape=(n, self.f_dimension))
         fa = self._modelF(a)
         fa = self.training_backend.reshape(fa, shape=n)
-        return self.training_backend.numpy(fa) if isinstance(self.backend, NumpyBackend) else fa
+        return (
+            self.training_backend.numpy(fa)
+            if isinstance(self.backend, NumpyBackend)
+            else fa
+        )
 
     def _g(self, b) -> Any:
         n = self.backend.len(b)
@@ -98,19 +113,29 @@ class GradientIndicator(CopulaIndicator):
         b = self.training_backend.reshape(b, shape=(n, self.g_dimension))
         gb = self._modelG(b)
         gb = self.training_backend.reshape(gb, shape=n)
-        return self.training_backend.numpy(gb) if isinstance(self.backend, NumpyBackend) else gb
+        return (
+            self.training_backend.numpy(gb)
+            if isinstance(self.backend, NumpyBackend)
+            else gb
+        )
 
     def _compute(self, a, b) -> Tuple[Any, Dict[str, Any]]:
         # cast the vectors to the neural backend type
         n, da, db = self.backend.len(a), self.f_dimension, self.g_dimension
-        a_cast = self.training_backend.reshape(self.training_backend.cast(a, dtype=float), shape=(n, da))
-        b_cast = self.training_backend.reshape(self.training_backend.cast(b, dtype=float), shape=(n, db))
+        a_cast = self.training_backend.reshape(
+            self.training_backend.cast(a, dtype=float), shape=(n, da)
+        )
+        b_cast = self.training_backend.reshape(
+            self.training_backend.cast(b, dtype=float), shape=(n, db)
+        )
         self._train_fn(a_cast, b_cast)
         # compute the indicator value as the (mean) vector product
         value = self._hgr(a=a_cast, b=b_cast)
         # return the result instance cast to the correct type
         if not isinstance(self.backend, self.training_backend.__class__):
-            value = self.backend.cast(self.training_backend.item(value), dtype=self.backend.dtype(a))
+            value = self.backend.cast(
+                self.training_backend.item(value), dtype=self.backend.dtype(a)
+            )
         return value, dict()
 
     class _DummyNetwork:
@@ -140,7 +165,9 @@ class GradientIndicator(CopulaIndicator):
         # detach vectors to avoid conflict when used as loss regularizer
         a = a.detach()
         b = b.detach()
-        for _ in range(self._epochs_start if self.num_calls == 0 else self._epochs_successive):
+        for _ in range(
+            self._epochs_start if self.num_calls == 0 else self._epochs_successive
+        ):
             self._optF.zero_grad()
             self._optG.zero_grad()
             try:
@@ -152,8 +179,12 @@ class GradientIndicator(CopulaIndicator):
                 pass
 
     def _train_tensorflow(self, a, b) -> None:
+        setup_cuda_paths()
         import tensorflow as tf
-        for _ in range(self._epochs_start if self.num_calls == 0 else self._epochs_successive):
+
+        for _ in range(
+            self._epochs_start if self.num_calls == 0 else self._epochs_successive
+        ):
             with tf.GradientTape(persistent=True) as tape:
                 loss = -self._hgr(a, b)
             f_grads = tape.gradient(loss, self._modelF.trainable_weights)
@@ -168,18 +199,20 @@ class NeuralIndicator(GradientIndicator):
     The computation is native in any backend, therefore gradient information is always retrieved when possible.
     """
 
-    algorithm: AlgorithmType = 'nn'
+    algorithm: AlgorithmType = "nn"
 
-    def __init__(self,
-                 f_units: Optional[Iterable[int]] = (16, 16, 8),
-                 g_units: Optional[Iterable[int]] = (16, 16, 8),
-                 backend: Union[Backend, BackendType] = 'numpy',
-                 semantics: SemanticsType = 'hgr',
-                 num_features: Tuple[int, int] = (1, 1),
-                 epochs_start: int = 1000,
-                 epochs_successive: Optional[int] = 50,
-                 learning_rate: float = 0.0005,
-                 eps: float = 1e-9):
+    def __init__(
+        self,
+        f_units: Optional[Iterable[int]] = (16, 16, 8),
+        g_units: Optional[Iterable[int]] = (16, 16, 8),
+        backend: Union[Backend, BackendType] = "numpy",
+        semantics: SemanticsType = "hgr",
+        num_features: Tuple[int, int] = (1, 1),
+        epochs_start: int = 1000,
+        epochs_successive: Optional[int] = 50,
+        learning_rate: float = 0.0005,
+        eps: float = 1e-9,
+    ):
         """
         :param f_units:
             The hidden units of the F copula network, or None for no F copula network.
@@ -209,19 +242,23 @@ class NeuralIndicator(GradientIndicator):
             The epsilon value used to avoid division by zero in case of null standard deviation.
         """
         # use default backend if it has a neural engine, otherwise prioritize torch and then tensorflow
-        if backend == 'tensorflow' or isinstance(backend, TensorflowBackend):
+        if backend == "tensorflow" or isinstance(backend, TensorflowBackend):
             build_fn = self._build_tensorflow
             train_fn = self._train_tensorflow
             training_backend = TensorflowBackend()
-        elif backend == 'torch' or isinstance(backend, TorchBackend) or importlib.util.find_spec('torch') is not None:
+        elif (
+            backend == "torch"
+            or isinstance(backend, TorchBackend)
+            or importlib.util.find_spec("torch") is not None
+        ):
             build_fn = self._build_torch
             train_fn = self._train_torch
             training_backend = TorchBackend()
-        elif importlib.util.find_spec('tensorflow') is not None:
+        elif importlib.util.find_spec("tensorflow") is not None:
             build_fn = self._build_tensorflow
             train_fn = self._train_tensorflow
             training_backend = TensorflowBackend()
-        elif backend == 'numpy' or isinstance(backend, NumpyBackend):
+        elif backend == "numpy" or isinstance(backend, NumpyBackend):
             raise ModuleNotFoundError(
                 "NeuralIndicator relies on neural networks and needs either pytorch or tensorflow installed even if "
                 "NumpyBackend() is selected. Please install it via 'pip install torch' or 'pip install tensorflow'"
@@ -232,8 +269,8 @@ class NeuralIndicator(GradientIndicator):
         super(NeuralIndicator, self).__init__(
             backend=backend,
             semantics=semantics,
-            f=build_fn(units=f_units, dim=num_features[0], lr=learning_rate, name='f'),
-            g=build_fn(units=g_units, dim=num_features[1], lr=learning_rate, name='g'),
+            f=build_fn(units=f_units, dim=num_features[0], lr=learning_rate, name="f"),
+            g=build_fn(units=g_units, dim=num_features[1], lr=learning_rate, name="g"),
             train_fn=train_fn,
             epochs_start=epochs_start,
             epochs_successive=epochs_successive,
@@ -264,10 +301,16 @@ class NeuralIndicator(GradientIndicator):
         return self._learning_rate
 
     @staticmethod
-    def _build_torch(units: Optional[Iterable[int]], dim: int, lr: float, name: str) -> Tuple[Any, Any, int]:
+    def _build_torch(
+        units: Optional[Iterable[int]], dim: int, lr: float, name: str
+    ) -> Tuple[Any, Any, int]:
+        setup_cuda_paths()
         import torch
+
         if units is None:
-            assert dim == 1, f"Transformation {name} is required since its input vector is multidimensional"
+            assert dim == 1, (
+                f"Transformation {name} is required since its input vector is multidimensional"
+            )
             network = NeuralIndicator._DummyNetwork()
             optimizer = NeuralIndicator._DummyOptimizer()
         else:
@@ -280,15 +323,23 @@ class NeuralIndicator(GradientIndicator):
         return network, optimizer, dim
 
     @staticmethod
-    def _build_tensorflow(units: Optional[Iterable[int]], dim: int, lr: float, name: str) -> Tuple[Any, Any, int]:
+    def _build_tensorflow(
+        units: Optional[Iterable[int]], dim: int, lr: float, name: str
+    ) -> Tuple[Any, Any, int]:
+        setup_cuda_paths()
         import tensorflow as tf
         from tensorflow.keras.layers import Dense
+
         if units is None:
-            assert dim == 1, f"Transformation {name} is required since its input vector is multidimensional"
+            assert dim == 1, (
+                f"Transformation {name} is required since its input vector is multidimensional"
+            )
             network = NeuralIndicator._DummyNetwork()
             optimizer = NeuralIndicator._DummyOptimizer()
         else:
-            network = tf.keras.Sequential([Dense(out, activation='relu') for out in units] + [Dense(1)])
+            network = tf.keras.Sequential(
+                [Dense(out, activation="relu") for out in units] + [Dense(1)]
+            )
             optimizer = tf.keras.optimizers.Adam(learning_rate=lr)
         return network, optimizer, dim
 
@@ -300,19 +351,21 @@ class LatticeIndicator(GradientIndicator):
     information is returned if the chosen backend is Torch.
     """
 
-    algorithm: AlgorithmType = 'lat'
+    algorithm: AlgorithmType = "lat"
 
-    def __init__(self,
-                 f_sizes: Union[None, int, Iterable[int]] = (10,),
-                 g_sizes: Union[None, int, Iterable[int]] = (10,),
-                 backend: Union[Backend, BackendType] = 'numpy',
-                 semantics: SemanticsType = 'hgr',
-                 epochs_start: int = 1000,
-                 epochs_successive: Optional[int] = 50,
-                 learning_rate: float = 0.01,
-                 eps: float = 1e-9,
-                 f_kwargs: Optional[Dict[str, Any]] = None,
-                 g_kwargs: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        f_sizes: Union[None, int, Iterable[int]] = (10,),
+        g_sizes: Union[None, int, Iterable[int]] = (10,),
+        backend: Union[Backend, BackendType] = "numpy",
+        semantics: SemanticsType = "hgr",
+        epochs_start: int = 1000,
+        epochs_successive: Optional[int] = 50,
+        learning_rate: float = 0.01,
+        eps: float = 1e-9,
+        f_kwargs: Optional[Dict[str, Any]] = None,
+        g_kwargs: Optional[Dict[str, Any]] = None,
+    ):
         """
         :param f_sizes:
             The number of keypoints along each dimension of the F copula model, or None for no model.
@@ -341,9 +394,11 @@ class LatticeIndicator(GradientIndicator):
         :param g_kwargs:
             Additional arguments to be passed to the tfl.layers.Lattice instance representing the G copula model.
         """
-        if importlib.util.find_spec('tensorflow') is None:
-            raise ModuleNotFoundError("LatticeIndicator needs both tensorflow and tensorflow-lattice installed. "
-                                      "Please install it via 'pip install tensorflow tensorflow-lattice'")
+        if importlib.util.find_spec("tensorflow") is None:
+            raise ModuleNotFoundError(
+                "LatticeIndicator needs both tensorflow and tensorflow-lattice installed. "
+                "Please install it via 'pip install tensorflow tensorflow-lattice'"
+            )
 
         if isinstance(f_sizes, int):
             f_sizes = (f_sizes,)
@@ -362,7 +417,7 @@ class LatticeIndicator(GradientIndicator):
             train_fn=self._train_tensorflow,
             epochs_start=epochs_start,
             epochs_successive=epochs_successive,
-            eps=eps
+            eps=eps,
         )
 
         self._sizesF: Optional[Tuple[int, ...]] = f_sizes
@@ -389,11 +444,15 @@ class LatticeIndicator(GradientIndicator):
         return self._learning_rate
 
     @staticmethod
-    def _build_model(sizes: Optional[Iterable[int]],
-                     lr: float,
-                     kwargs: Optional[Dict[str, Any]]) -> Tuple[Any, Any, int]:
+    def _build_model(
+        sizes: Optional[Iterable[int]],
+        lr: float,
+        kwargs: Optional[Dict[str, Any]],
+    ) -> Tuple[Any, Any, int]:
+        setup_cuda_paths()
         import tensorflow as tf
         import tensorflow_lattice as tfl
+
         if sizes is None:
             dim = 1
             model = LatticeIndicator._DummyNetwork()
