@@ -21,15 +21,17 @@ class RandomizedIndicator(Indicator):
     Moreover, this indicator supports univariate input data only.
     """
 
-    algorithm: AlgorithmType = 'rdc'
+    algorithm: AlgorithmType = "rdc"
 
-    def __init__(self,
-                 functions: Callable[[np.ndarray], np.ndarray] = np.sin,
-                 backend: Union[Backend, BackendType] = 'numpy',
-                 semantics: SemanticsType = 'hgr',
-                 projections: int = 20,
-                 scale: float = 1.0 / 6,
-                 repetitions: int = 1):
+    def __init__(
+        self,
+        functions: Callable[[np.ndarray], np.ndarray] = np.sin,
+        backend: Union[Backend, BackendType] = "numpy",
+        semantics: SemanticsType = "hgr",
+        projections: int = 20,
+        scale: float = 1.0 / 6,
+        repetitions: int = 1,
+    ):
         """
         :param functions:
             The class of functions used to build the random projections.
@@ -85,14 +87,16 @@ class RandomizedIndicator(Indicator):
         a = self.backend.squeeze(a)
         b = self.backend.squeeze(b)
         if self.backend.ndim(a) != 1 or self.backend.ndim(b) != 1:
-            raise ValueError('RandomizedIndicator can only handle one-dimensional vectors')
+            raise ValueError(
+                "RandomizedIndicator can only handle one-dimensional vectors"
+            )
         value = RandomizedIndicator._rdc(
             x=self.backend.numpy(a),
             y=self.backend.numpy(b),
             f=self.function,
             k=self.projections,
             s=self.scale,
-            n=self.repetitions
+            n=self.repetitions,
         )
         return self.backend.cast(value, dtype=self.backend.dtype(a)), dict()
 
@@ -114,8 +118,12 @@ class RandomizedIndicator(Indicator):
             y = y.reshape((-1, 1))
 
         # Copula Transformation
-        cx = np.column_stack([rankdata(xc, method='ordinal') for xc in x.T]) / float(x.size)
-        cy = np.column_stack([rankdata(yc, method='ordinal') for yc in y.T]) / float(y.size)
+        cx = np.column_stack([rankdata(xc, method="ordinal") for xc in x.T]) / float(
+            x.size
+        )
+        cy = np.column_stack([rankdata(yc, method="ordinal") for yc in y.T]) / float(
+            y.size
+        )
 
         # Add a vector of ones so that w.x + b is just a dot product
         O = np.ones(cx.shape[0])
@@ -145,16 +153,21 @@ class RandomizedIndicator(Indicator):
         while True:
             # Compute canonical correlations
             Cxx = C[:k, :k]
-            Cyy = C[k0:k0 + k, k0:k0 + k]
-            Cxy = C[:k, k0:k0 + k]
-            Cyx = C[k0:k0 + k, :k]
+            Cyy = C[k0 : k0 + k, k0 : k0 + k]
+            Cxy = C[:k, k0 : k0 + k]
+            Cyx = C[k0 : k0 + k, :k]
 
-            eigs = np.linalg.eigvals(np.dot(np.dot(np.linalg.pinv(Cxx), Cxy), np.dot(np.linalg.pinv(Cyy), Cyx)))
+            eigs = np.linalg.eigvals(
+                np.dot(
+                    np.dot(np.linalg.pinv(Cxx), Cxy),
+                    np.dot(np.linalg.pinv(Cyy), Cyx),
+                )
+            )
 
             # Binary search if k is too large
-            if not (np.all(np.isreal(eigs)) and
-                    0 <= np.min(eigs) and
-                    np.max(eigs) <= 1):
+            if not (
+                np.all(np.isreal(eigs)) and 0 <= np.min(eigs) and np.max(eigs) <= 1
+            ):
                 ub -= 1
                 k = (ub + lb) // 2
                 continue

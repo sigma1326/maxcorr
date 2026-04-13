@@ -35,15 +35,17 @@ class KernelBasedIndicator(CopulaIndicator):
         beta: List[float] = field()
         """The coefficient vector for the f copula transformation."""
 
-    def __init__(self,
-                 backend: Union[Backend, BackendType],
-                 semantics: SemanticsType,
-                 method: str,
-                 maxiter: int,
-                 eps: float,
-                 tol: float,
-                 use_lstsq: bool,
-                 delta_independent: Optional[float]):
+    def __init__(
+        self,
+        backend: Union[Backend, BackendType],
+        semantics: SemanticsType,
+        method: str,
+        maxiter: int,
+        eps: float,
+        tol: float,
+        use_lstsq: bool,
+        delta_independent: Optional[float],
+    ):
         """
         :param backend:
             The backend to use to compute the indicator, or its alias.
@@ -69,7 +71,9 @@ class KernelBasedIndicator(CopulaIndicator):
         :param delta_independent:
             A delta value used to select linearly dependent columns and remove them, or None to avoid this step.
         """
-        super(KernelBasedIndicator, self).__init__(backend=backend, semantics=semantics, eps=eps)
+        super(KernelBasedIndicator, self).__init__(
+            backend=backend, semantics=semantics, eps=eps
+        )
         self._method: str = method
         self._maxiter: int = maxiter
         self._tol: float = tol
@@ -98,13 +102,17 @@ class KernelBasedIndicator(CopulaIndicator):
     @property
     def alpha(self) -> List[float]:
         """The alpha vector computed in the last execution."""
-        assert self.last_result is not None, "The indicator has not been computed yet, no transformation can be used."
+        assert self.last_result is not None, (
+            "The indicator has not been computed yet, no transformation can be used."
+        )
         return self.last_result.alpha
 
     @property
     def beta(self) -> List[float]:
         """The beta vector computed in the last execution."""
-        assert self.last_result is not None, "The indicator has not been computed yet, no transformation can be used."
+        assert self.last_result is not None, (
+            "The indicator has not been computed yet, no transformation can be used."
+        )
         return self.last_result.beta
 
     @property
@@ -135,24 +143,30 @@ class KernelBasedIndicator(CopulaIndicator):
     def _f(self, a) -> Any:
         # cast vector to float if non-floating input type
         a = a if self.backend.floating(a) else self.backend.cast(a, dtype=float)
-        kernel = self.backend.stack([self.backend.center(fi) for fi in self.kernel_a(a)], axis=1)
+        kernel = self.backend.stack(
+            [self.backend.center(fi) for fi in self.kernel_a(a)], axis=1
+        )
         alpha = self.backend.cast(self.last_result.alpha, dtype=self.backend.dtype(a))
         return self.backend.matmul(kernel, alpha)
 
     def _g(self, b) -> Any:
         # cast vector to float if non-floating input type
         b = b if self.backend.floating(b) else self.backend.cast(b, dtype=float)
-        kernel = self.backend.stack([self.backend.center(gi) for gi in self.kernel_b(b)], axis=1)
+        kernel = self.backend.stack(
+            [self.backend.center(gi) for gi in self.kernel_b(b)], axis=1
+        )
         beta = self.backend.cast(self.last_result.beta, dtype=self.backend.dtype(b))
         return self.backend.matmul(kernel, beta)
 
-    def _indices(self, f: list, g: list) -> Tuple[Tuple[list, List[int]], Tuple[list, List[int]]]:
+    def _indices(
+        self, f: list, g: list
+    ) -> Tuple[Tuple[list, List[int]], Tuple[list, List[int]]]:
         def independent(m):
             # add the bias to the matrix
             b = np.ones(shape=(len(m), 1))
             m = np.concatenate((b, m), axis=1)
             # compute the QR factorization
-            r = scipy.linalg.qr(m, mode='r')[0]
+            r = scipy.linalg.qr(m, mode="r")[0]
             # build the diagonal of the R matrix (excluding the bias column)
             r = np.abs(np.diag(r)[1:])
             # independent columns are those having a value higher than the tolerance
@@ -178,7 +192,9 @@ class KernelBasedIndicator(CopulaIndicator):
         d = da + db
         if da < db:
             f_indices = np.array([2 * i for i in range(da)])
-            g_indices = np.array([2 * i + 1 for i in range(da)] + list(range(2 * da, d)))
+            g_indices = np.array(
+                [2 * i + 1 for i in range(da)] + list(range(2 * da, d))
+            )
         else:
             f_indices = np.array([2 * i for i in range(db)] + list(range(2 * db, d)))
             g_indices = np.array([2 * i + 1 for i in range(db)])
@@ -205,13 +221,9 @@ class KernelBasedIndicator(CopulaIndicator):
                 g_columns.append(g[idx])
         return (f_columns, f_indices), (g_columns, g_indices)
 
-    def _result(self,
-                a,
-                b,
-                kernel_a: bool,
-                kernel_b: bool,
-                a0: Optional,
-                b0: Optional) -> Tuple[Any, List[float], List[float]]:
+    def _result(
+        self, a, b, kernel_a: bool, kernel_b: bool, a0: Optional, b0: Optional
+    ) -> Tuple[Any, List[float], List[float]]:
         # build the kernel matrices, compute their original degrees, and get the linearly independent indices
         # if the kernels should not be used, create a list of input features by transposing the vector/matrix
         # and then taking each column as a single vector in the list in order to allow for multidimensional inputs
@@ -235,11 +247,15 @@ class KernelBasedIndicator(CopulaIndicator):
             pass
         elif degree_a == 1 and self.use_lstsq:
             f_slim = self.backend.standardize(f_slim, eps=self.eps)
-            beta = self.backend.lstsq(A=g_slim, b=self.backend.reshape(f_slim, shape=-1))
+            beta = self.backend.lstsq(
+                A=g_slim, b=self.backend.reshape(f_slim, shape=-1)
+            )
             beta_numpy = self.backend.numpy(beta)
         elif degree_b == 1 and self.use_lstsq:
             g_slim = self.backend.standardize(g_slim, eps=self.eps)
-            alpha = self.backend.lstsq(A=f_slim, b=self.backend.reshape(g_slim, shape=-1))
+            alpha = self.backend.lstsq(
+                A=f_slim, b=self.backend.reshape(g_slim, shape=-1)
+            )
             alpha_numpy = self.backend.numpy(alpha)
         else:
             f_numpy = self.backend.numpy(f_slim)
@@ -266,22 +282,33 @@ class KernelBasedIndicator(CopulaIndicator):
             #   - grad: [ 0 | 2 * G.T @ G @ beta / n ]
             #   - hess: [ 0 |         0       ]
             #           [ 0 | 2 * G.T @ G / n ]
-            cst_hess = np.zeros(shape=(degree_a + degree_b, degree_a + degree_b), dtype=float)
+            cst_hess = np.zeros(
+                shape=(degree_a + degree_b, degree_a + degree_b), dtype=float
+            )
             cst_hess[degree_a:, degree_a:] = 2 * g_numpy.T @ g_numpy / n
             constraint = NonlinearConstraint(
                 fun=lambda inp: np.var(g_numpy @ inp[degree_a:], ddof=0),
-                jac=lambda inp: np.concatenate(([0] * degree_a, 2 * g_numpy.T @ g_numpy @ inp[degree_a:] / n)),
+                jac=lambda inp: np.concatenate(
+                    (
+                        [0] * degree_a,
+                        2 * g_numpy.T @ g_numpy @ inp[degree_a:] / n,
+                    )
+                ),
                 hess=lambda *_: cst_hess,
                 lb=1,
-                ub=1
+                ub=1,
             )
             # if no guess is provided, set the initial point as [ 1 / std(F @ 1) | 1 / std(G @ 1) ] then solve
             if a0 is None:
-                a0 = np.ones(degree_a) / np.sqrt(f_numpy.sum(axis=1).var(ddof=0) + self.eps)
+                a0 = np.ones(degree_a) / np.sqrt(
+                    f_numpy.sum(axis=1).var(ddof=0) + self.eps
+                )
             else:
                 a0 = np.array(a0)[f_indices]
             if b0 is None:
-                b0 = np.ones(degree_b) / np.sqrt(g_numpy.sum(axis=1).var(ddof=0) + self.eps)
+                b0 = np.ones(degree_b) / np.sqrt(
+                    g_numpy.sum(axis=1).var(ddof=0) + self.eps
+                )
             else:
                 b0 = np.array(b0)[g_indices]
             x0 = np.concatenate((a0, b0))
@@ -294,7 +321,7 @@ class KernelBasedIndicator(CopulaIndicator):
                 constraints=[constraint],
                 method=self.method,
                 tol=self.tol,
-                options={'maxiter': self.maxiter}
+                options={"maxiter": self.maxiter},
             )
             alpha_numpy = s.x[:degree_a]
             beta_numpy = s.x[degree_a:]
@@ -312,17 +339,27 @@ class KernelBasedIndicator(CopulaIndicator):
         beta_full[g_indices] = beta_numpy
         beta_full = beta_full / np.abs(beta_full).sum()
         # return the results, converting alpha and beta to lists of floats
-        return value, [float(v) for v in alpha_full], [float(v) for v in beta_full]
+        return (
+            value,
+            [float(v) for v in alpha_full],
+            [float(v) for v in beta_full],
+        )
 
     @staticmethod
     def _poly_kernel(v, degree: int, backend: Backend) -> list:
         # build the polynomial kernel expansion from the input vector <v>
         if backend.ndim(v) == 1:
-            return [v ** d for d in np.arange(degree) + 1]
+            return [v**d for d in np.arange(degree) + 1]
         else:
             _, features = backend.shape(v)
-            iterables = [combinations_with_replacement(range(features), d + 1) for d in range(degree)]
-            return [prod([v[:, i] for i in indices]) for indices in chain.from_iterable(iterables)]
+            iterables = [
+                combinations_with_replacement(range(features), d + 1)
+                for d in range(degree)
+            ]
+            return [
+                prod([v[:, i] for i in indices])
+                for indices in chain.from_iterable(iterables)
+            ]
 
 
 class DoubleKernelIndicator(KernelBasedIndicator, ABC):
@@ -331,19 +368,21 @@ class DoubleKernelIndicator(KernelBasedIndicator, ABC):
     The computation is native in any backend, therefore gradient information is always retrieved when possible.
     """
 
-    algorithm: AlgorithmType = 'dk'
+    algorithm: AlgorithmType = "dk"
 
-    def __init__(self,
-                 kernel_a: Union[int, Callable[[Any], list]] = 3,
-                 kernel_b: Union[int, Callable[[Any], list]] = 3,
-                 backend: Union[Backend, BackendType] = 'numpy',
-                 semantics: SemanticsType = 'hgr',
-                 method: str = 'trust-constr',
-                 maxiter: int = 1000,
-                 eps: float = 1e-9,
-                 tol: float = 1e-9,
-                 use_lstsq: bool = True,
-                 delta_independent: Optional[float] = None):
+    def __init__(
+        self,
+        kernel_a: Union[int, Callable[[Any], list]] = 3,
+        kernel_b: Union[int, Callable[[Any], list]] = 3,
+        backend: Union[Backend, BackendType] = "numpy",
+        semantics: SemanticsType = "hgr",
+        method: str = "trust-constr",
+        maxiter: int = 1000,
+        eps: float = 1e-9,
+        tol: float = 1e-9,
+        use_lstsq: bool = True,
+        delta_independent: Optional[float] = None,
+    ):
         """
         :param kernel_a:
             Either a callable f(a) yielding a list of variable's kernels, or an integer degree for a polynomial kernel.
@@ -383,16 +422,20 @@ class DoubleKernelIndicator(KernelBasedIndicator, ABC):
             eps=eps,
             tol=tol,
             use_lstsq=use_lstsq,
-            delta_independent=delta_independent
+            delta_independent=delta_independent,
         )
 
         # handle kernels
         if isinstance(kernel_a, int):
             degree_a = kernel_a
-            kernel_a = lambda a: KernelBasedIndicator._poly_kernel(a, degree=degree_a, backend=self.backend)
+            kernel_a = lambda a: KernelBasedIndicator._poly_kernel(
+                a, degree=degree_a, backend=self.backend
+            )
         if isinstance(kernel_b, int):
             degree_b = kernel_b
-            kernel_b = lambda b: KernelBasedIndicator._poly_kernel(b, degree=degree_b, backend=self.backend)
+            kernel_b = lambda b: KernelBasedIndicator._poly_kernel(
+                b, degree=degree_b, backend=self.backend
+            )
         self._kernel_a: Callable[[Any], list] = kernel_a
         self._kernel_b: Callable[[Any], list] = kernel_b
 
@@ -404,8 +447,14 @@ class DoubleKernelIndicator(KernelBasedIndicator, ABC):
 
     def _compute(self, a, b) -> Tuple[Any, Dict[str, Any]]:
         # noinspection PyUnresolvedReferences
-        a0, b0 = (None, None) if self.last_result is None else (self.last_result.alpha, self.last_result.beta)
-        value, alpha, beta = self._result(a=a, b=b, kernel_a=True, kernel_b=True, a0=a0, b0=b0)
+        a0, b0 = (
+            (None, None)
+            if self.last_result is None
+            else (self.last_result.alpha, self.last_result.beta)
+        )
+        value, alpha, beta = self._result(
+            a=a, b=b, kernel_a=True, kernel_b=True, a0=a0, b0=b0
+        )
         return value, dict(alpha=alpha, beta=beta)
 
 
@@ -415,18 +464,20 @@ class SingleKernelIndicator(KernelBasedIndicator, ABC):
     The computation is native in any backend, therefore gradient information is always retrieved when possible.
     """
 
-    algorithm: AlgorithmType = 'sk'
+    algorithm: AlgorithmType = "sk"
 
-    def __init__(self,
-                 kernel: Union[int, Callable[[Any], list]] = 3,
-                 backend: Union[Backend, BackendType] = 'numpy',
-                 semantics: SemanticsType = 'hgr',
-                 method: str = 'trust-constr',
-                 maxiter: int = 1000,
-                 eps: float = 1e-9,
-                 tol: float = 1e-9,
-                 use_lstsq: bool = True,
-                 delta_independent: Optional[float] = None):
+    def __init__(
+        self,
+        kernel: Union[int, Callable[[Any], list]] = 3,
+        backend: Union[Backend, BackendType] = "numpy",
+        semantics: SemanticsType = "hgr",
+        method: str = "trust-constr",
+        maxiter: int = 1000,
+        eps: float = 1e-9,
+        tol: float = 1e-9,
+        use_lstsq: bool = True,
+        delta_independent: Optional[float] = None,
+    ):
         """
         :param kernel:
             Either a callable k(x) yielding a list of variable's kernels, or an integer degree for a polynomial kernel.
@@ -463,13 +514,15 @@ class SingleKernelIndicator(KernelBasedIndicator, ABC):
             eps=eps,
             tol=tol,
             use_lstsq=use_lstsq,
-            delta_independent=delta_independent
+            delta_independent=delta_independent,
         )
 
         # handle kernel
         if isinstance(kernel, int):
             degree = kernel
-            kernel = lambda x: KernelBasedIndicator._poly_kernel(x, degree=degree, backend=self.backend)
+            kernel = lambda x: KernelBasedIndicator._poly_kernel(
+                x, degree=degree, backend=self.backend
+            )
         self._kernel: Callable[[Any], list] = kernel
 
     def kernel(self, x) -> list:
@@ -484,9 +537,17 @@ class SingleKernelIndicator(KernelBasedIndicator, ABC):
 
     def _compute(self, a, b) -> Tuple[Any, Dict[str, Any]]:
         # noinspection PyUnresolvedReferences
-        a0, b0 = (None, None) if self.last_result is None else (self.last_result.alpha, self.last_result.beta)
-        val_a, alpha_a, beta_a = self._result(a=a, b=b, kernel_a=True, kernel_b=False, a0=a0, b0=None)
-        val_b, alpha_b, beta_b = self._result(a=a, b=b, kernel_a=False, kernel_b=True, a0=None, b0=b0)
+        a0, b0 = (
+            (None, None)
+            if self.last_result is None
+            else (self.last_result.alpha, self.last_result.beta)
+        )
+        val_a, alpha_a, beta_a = self._result(
+            a=a, b=b, kernel_a=True, kernel_b=False, a0=a0, b0=None
+        )
+        val_b, alpha_b, beta_b = self._result(
+            a=a, b=b, kernel_a=False, kernel_b=True, a0=None, b0=b0
+        )
         if val_a > val_b:
             value = val_a
             alpha = alpha_a

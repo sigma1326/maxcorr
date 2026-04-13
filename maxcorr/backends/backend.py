@@ -25,7 +25,7 @@ class Backend:
         self._backend = backend
 
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}()'
+        return f"{self.__class__.__name__}()"
 
     def __eq__(self, other) -> bool:
         return self is other
@@ -34,7 +34,7 @@ class Backend:
     def name(self) -> BackendType:
         """An alias for the backend."""
         # noinspection PyTypeChecker
-        return self.__class__.__name__.replace('Backend', '').lower()
+        return self.__class__.__name__.replace("Backend", "").lower()
 
     @property
     @abstractmethod

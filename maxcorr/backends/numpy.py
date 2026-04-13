@@ -4,6 +4,7 @@ from typing import Any, Type, Optional, Union, Iterable
 import numpy as np
 
 from maxcorr.backends import Backend
+from maxcorr.cuda_path_utils import setup_cuda_paths
 
 
 class NumpyBackend(Backend):
@@ -26,8 +27,10 @@ class NumpyBackend(Backend):
 
     def cast(self, v, dtype=None) -> Any:
         # detach torch tensor if passed as input
-        if importlib.util.find_spec('torch') is not None:
+        if importlib.util.find_spec("torch") is not None:
+            setup_cuda_paths()
             import torch
+
             if isinstance(v, torch.Tensor):
                 v = v.detach().cpu().numpy()
         v = self._backend.array(v, dtype=dtype)

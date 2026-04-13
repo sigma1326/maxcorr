@@ -4,15 +4,18 @@ from typing import Any, Type, Union, Iterable
 import numpy as np
 
 from maxcorr.backends import Backend
+from maxcorr.cuda_path_utils import setup_cuda_paths
 
 
 class TensorflowBackend(Backend):
     def __init__(self):
-        if importlib.util.find_spec('tensorflow') is None:
+        if importlib.util.find_spec("tensorflow") is None:
             raise ModuleNotFoundError(
                 "TensorflowBackend requires 'tensorflow', please install it via 'pip install tensorflow'"
             )
+        setup_cuda_paths()
         import tensorflow
+
         super(TensorflowBackend, self).__init__(backend=tensorflow)
 
     @property
@@ -24,14 +27,20 @@ class TensorflowBackend(Backend):
 
     def cast(self, v, dtype=None) -> Any:
         # detach torch tensor if passed as input
-        if importlib.util.find_spec('torch') is not None:
+        if importlib.util.find_spec("torch") is not None:
+            setup_cuda_paths()
             import torch
+
             if isinstance(v, torch.Tensor):
                 v = v.detach().cpu().numpy()
         # build a dictionary to avoid passing dtype=None to tensorflow primitives
         kwargs = dict() if dtype is None else dict(dtype=dtype)
         # if the vector is already a tf tensor, simply change the dtype to avoid warnings
-        return self._backend.cast(v, **kwargs) if self.comply(v) else self._backend.constant(v, **kwargs)
+        return (
+            self._backend.cast(v, **kwargs)
+            if self.comply(v)
+            else self._backend.constant(v, **kwargs)
+        )
 
     def item(self, v) -> float:
         return float(v.numpy().item())

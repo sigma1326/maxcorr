@@ -2,7 +2,12 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Optional, Callable, Union, Tuple, Dict
 
-from maxcorr.backends import NumpyBackend, TorchBackend, Backend, TensorflowBackend
+from maxcorr.backends import (
+    NumpyBackend,
+    TorchBackend,
+    Backend,
+    TensorflowBackend,
+)
 from maxcorr.typing import BackendType, SemanticsType, AlgorithmType
 
 
@@ -76,21 +81,21 @@ class Indicator:
         """
         # handle backend
         backend_lower = backend.lower()
-        if backend_lower == 'numpy':
+        if backend_lower == "numpy":
             backend = NumpyBackend()
-        elif backend_lower == 'tensorflow':
+        elif backend_lower == "tensorflow":
             backend = TensorflowBackend()
-        elif backend_lower == 'torch':
+        elif backend_lower == "torch":
             backend = TorchBackend()
         elif not isinstance(backend, Backend):
             raise ValueError(f"Unknown backend '{backend}'")
         # handle semantics
         semantics_lower = semantics.lower()
-        if semantics_lower == 'hgr':
+        if semantics_lower == "hgr":
             factor = lambda a, b: 1
-        elif semantics_lower == 'gedi':
+        elif semantics_lower == "gedi":
             factor = lambda a, b: self.backend.std(b) / self.backend.std(a)
-        elif semantics_lower == 'nlc':
+        elif semantics_lower == "nlc":
             factor = lambda a, b: self.backend.std(b) * self.backend.std(a)
         else:
             raise ValueError(f"Unknown semantics '{semantics}'")
@@ -150,11 +155,19 @@ class Indicator:
             A `Result` instance containing the computed indicator value together with additional information.
         """
         bk = self.backend
-        assert bk.ndim(a) <= 2, f"Expected input data of at most two dimensions, got <a> with {bk.ndim(a)} dimensions"
-        assert bk.ndim(b) <= 2, f"Expected input data of at most two dimensions, got <b> with {bk.ndim(b)} dimensions"
-        assert bk.len(a) == bk.len(b), f"Input vectors must have the same dimension, got {bk.len(a)} != {bk.len(b)}"
+        assert bk.ndim(a) <= 2, (
+            f"Expected input data of at most two dimensions, got <a> with {bk.ndim(a)} dimensions"
+        )
+        assert bk.ndim(b) <= 2, (
+            f"Expected input data of at most two dimensions, got <b> with {bk.ndim(b)} dimensions"
+        )
+        assert bk.len(a) == bk.len(b), (
+            f"Input vectors must have the same dimension, got {bk.len(a)} != {bk.len(b)}"
+        )
         self._num_calls += 1
-        value, kwargs = self._compute(a=bk.cast(a, dtype=float), b=bk.cast(b, dtype=float))
+        value, kwargs = self._compute(
+            a=bk.cast(a, dtype=float), b=bk.cast(b, dtype=float)
+        )
         # noinspection PyArgumentList
         result = self.Result(
             a=a,
@@ -162,7 +175,7 @@ class Indicator:
             value=value * self._factor(a, b),
             num_call=self.num_calls,
             indicator=self,
-            **kwargs
+            **kwargs,
         )
         self._last_result = result
         return result
@@ -189,7 +202,12 @@ class Indicator:
 class CopulaIndicator(Indicator):
     """Interface of an indicator that computes the value using copula transformations."""
 
-    def __init__(self, backend: Union[Backend, BackendType], semantics: SemanticsType, eps: float):
+    def __init__(
+        self,
+        backend: Union[Backend, BackendType],
+        semantics: SemanticsType,
+        eps: float,
+    ):
         """
         :param backend:
             The backend to use to compute the indicator, or its alias.
@@ -225,7 +243,9 @@ class CopulaIndicator(Indicator):
         :return:
             The resulting projection with zero mean and unitary variance.
         """
-        assert self.last_result is not None, "The indicator has not been computed yet, no transformation can be used."
+        assert self.last_result is not None, (
+            "The indicator has not been computed yet, no transformation can be used."
+        )
         return self._f(a)
 
     def g(self, b) -> Any:
@@ -237,7 +257,9 @@ class CopulaIndicator(Indicator):
         :return:
             The resulting projection with zero mean and unitary variance.
         """
-        assert self.last_result is not None, "The indicator has not been computed yet, no transformation can be used."
+        assert self.last_result is not None, (
+            "The indicator has not been computed yet, no transformation can be used."
+        )
         return self._g(b)
 
     def value(self, a, b) -> float:
@@ -252,7 +274,9 @@ class CopulaIndicator(Indicator):
         :return:
             The computed indicator.
         """
-        assert self.last_result is not None, "The indicator has not been computed yet, no transformation can be used."
+        assert self.last_result is not None, (
+            "The indicator has not been computed yet, no transformation can be used."
+        )
         fa = self.backend.standardize(self._f(a=a), eps=self.eps)
         gb = self.backend.standardize(self._g(b=b), eps=self.eps)
         value = self.backend.mean(fa * gb) * self._factor(a=a, b=b)
