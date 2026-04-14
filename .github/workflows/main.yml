@@ -8,11 +8,11 @@ jobs:
       fail-fast: false
       matrix:
         os: ["windows-2022", "macos-13", "ubuntu-20.04"]
-        python-version: ["3.8", "3.12"]
+        python-version: ["3.9", "3.12"]
         include:
           # Test minimal versions on ubuntu only
           - os: "ubuntu-20.04"
-            python-version: "3.8"
+            python-version: "3.9"
             test-minimal: true
 
     runs-on: ${{ matrix.os }}
