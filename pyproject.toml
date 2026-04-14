@@ -73,7 +73,7 @@ tensorflow-gpu = [
 # CPU version (works everywhere)
 lattice = [
     "tensorflow>=2.16",
-    "tensorflow-lattice>=2.0.9";
+    "tensorflow-lattice>=2.0.9"
 ]
 
 # GPU version (Linux only)
