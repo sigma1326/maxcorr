@@ -7,7 +7,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["windows-2022", "macos-latest", "ubuntu-24.04"]
+        os: ["windows-latest", "macos-latest", "ubuntu-latest"]
         python-version: ["3.11", "3.12"]
         include:
           # Test minimal versions on ubuntu only
@@ -39,7 +39,7 @@ jobs:
       # Minimal versions - test with lowest direct deps
       - name: Install dependencies (minimal)
         if: ${{ matrix.test-minimal }}
-        run: uv pip install --resolution lowest-direct -e ".[full]" --system
+        run: uv pip install --resolution lowest-direct -e ".[full,dev]" --system
 
       - name: Print environment
         run: |
