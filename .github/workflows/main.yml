@@ -7,11 +7,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ["windows-2022", "macos-13", "ubuntu-20.04"]
+        os: ["windows-2022", "macos-latest", "ubuntu-24.04"]
         python-version: ["3.11", "3.12"]
         include:
           # Test minimal versions on ubuntu only
-          - os: "ubuntu-20.04"
+          - os: "ubuntu-24.04"
             python-version: "3.11"
             test-minimal: true
 
