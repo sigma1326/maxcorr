@@ -52,12 +52,23 @@ dependencies = [
 
 [project.optional-dependencies]
 torch = ["torch>=2.0"]
-tensorflow = ["tensorflow[and-cuda]>=2.16"]
+tensorflow = ["tensorflow>=2.16"]  # CPU version
+tensorflow-gpu = ["tensorflow[and-cuda]>=2.16"]  # GPU version
 lattice = [
-    "tensorflow[and-cuda]>=2.13",
+    "tensorflow>=2.16",
+    "tensorflow-lattice>=2.0.9",
+]
+lattice-gpu = [
+    "tensorflow[and-cuda]>=2.16",
     "tensorflow-lattice>=2.0.9",
 ]
 full = [
+    "torch>=2.0",
+    "tensorflow>=2.16",  # CPU, not GPU
+    "tensorflow-lattice>=2.0.9",
+]
+
+full-gpu = [
     "torch>=2.0",
     "tensorflow[and-cuda]>=2.16",
     "tensorflow-lattice>=2.0.9",
@@ -79,7 +90,6 @@ profiling = [
     "psutil>=5.9",
     "matplotlib>=3.8",
     "pandas>=2.0",
-    "tensorflow[and-cuda]>=2.15",
 ]
 
 
