@@ -95,7 +95,8 @@ full = [
 # All backends (GPU versions - Linux/macOS only)
 full-gpu = [
     "torch>=2.0",
-    "tensorflow[and-cuda]>=2.16",
+    "tensorflow[and-cuda]>=2.16; sys_platform != 'win32'",
+    "tensorflow>=2.16; sys_platform == 'win32'",  # Fallback to CPU on Windows
     "tensorflow-lattice>=2.0.9",
 ]
 
