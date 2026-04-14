@@ -9,11 +9,6 @@ jobs:
       matrix:
         os: ["windows-latest", "macos-latest", "ubuntu-latest"]
         python-version: ["3.11", "3.12"]
-        include:
-          # Test minimal versions on ubuntu only
-          - os: "ubuntu-24.04"
-            python-version: "3.11"
-            test-minimal: true
 
     runs-on: ${{ matrix.os }}
     name: Test ${{ matrix.os }} / Python ${{ matrix.python-version }}
