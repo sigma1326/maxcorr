@@ -73,7 +73,7 @@ tensorflow-gpu = [
 # CPU version (works everywhere)
 lattice = [
     "tensorflow>=2.16",
-    "tensorflow-lattice>=2.0.9; sys_platform != 'win32'",  # Not on Windows
+    "tensorflow-lattice>=2.0.9";
 ]
 
 # GPU version (Linux only)
@@ -89,14 +89,14 @@ lattice-gpu = [
 full = [
     "torch>=2.0",
     "tensorflow>=2.16",
-    "tensorflow-lattice>=2.0.9; sys_platform != 'win32'",
+    "tensorflow-lattice>=2.0.9",
 ]
 
 # All backends (GPU versions - Linux/macOS only)
 full-gpu = [
     "torch>=2.0",
-    "tensorflow[and-cuda]>=2.16; sys_platform != 'win32'",
-    "tensorflow-lattice>=2.0.9; sys_platform != 'win32'",
+    "tensorflow[and-cuda]>=2.16",
+    "tensorflow-lattice>=2.0.9",
 ]
 
 # ================================================================
