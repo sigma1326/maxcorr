@@ -32,7 +32,7 @@ import seaborn as sns
 from matplotlib.lines import Line2D
 from sklearn.datasets import make_circles, make_moons, make_swiss_roll
 
-from maxcorr import indicator
+from maxcorr import AlgorithmType, SemanticsType, indicator
 from maxcorr.cross_validation import find_best_params
 
 warnings.filterwarnings("ignore")
@@ -432,11 +432,14 @@ class NonLinearIndicatorTester:
         a: np.ndarray,
         b: np.ndarray,
         dataset_name: str,
-        algorithm: str = "sk",
+        algorithm: AlgorithmType = "sk",
         param_grid: dict | None = None,
         n_splits: int = 5,
-        semantics: str = "hgr",
+        semantics: SemanticsType = "hgr",
         plot_transformations: bool = False,
+        use_hard_constraint: bool = True,
+        var_lower_bound: float = 1.0,
+        var_upper_bound: float = 1.0,
     ) -> TestResult:
         """Test indicator on a single dataset."""
 
@@ -446,6 +449,14 @@ class NonLinearIndicatorTester:
                 if algorithm == "sk"
                 else {"kernel_a": [3, 4, 5], "kernel_b": [3, 4, 5]}
             )
+
+        param_grid.update(
+            **{
+                "use_hard_constraint": [use_hard_constraint],
+                "var_lower_bound": [var_lower_bound],
+                "var_upper_bound": [var_upper_bound],
+            }
+        )
 
         if self.verbose:
             print(f"\n{'=' * 80}")
@@ -519,6 +530,9 @@ class NonLinearIndicatorTester:
         random_state: int = 42,
         datasets: list[tuple[np.ndarray, np.ndarray, str]] | None = None,
         plot_proofs: bool = False,
+        use_hard_constraint: bool = True,
+        var_lower_bound: float = 1.0,
+        var_upper_bound: float = 1.0,
     ) -> pd.DataFrame:
         """Test indicator on all available datasets."""
 
@@ -549,6 +563,9 @@ class NonLinearIndicatorTester:
                     algorithm=algo,
                     n_splits=n_splits,
                     semantics=semantics,
+                    use_hard_constraint=use_hard_constraint,
+                    var_lower_bound=var_lower_bound,
+                    var_upper_bound=var_upper_bound,
                 )
 
         # Trigger the 5-column proof using the CV results
@@ -975,8 +992,12 @@ class NonLinearVisualizer:
                         label="g(b)",
                         linewidth=2,
                     )
+                    best_params = res.best_params.copy()
+                    del best_params["var_lower_bound"]
+                    del best_params["var_upper_bound"]
+                    del best_params["use_hard_constraint"]
                     axes[i, col_offset].set_title(
-                        f"HGR-{algo.upper()} Copulas\nBest Params: {res.best_params}",
+                        f"HGR-{algo.upper()} Copulas\nBest Params: {best_params}",
                         fontweight="bold",
                     )
                     axes[i, col_offset].legend()
@@ -1013,6 +1034,10 @@ class NonLinearVisualizer:
 def main():
     """Run comprehensive non-linear relationship testing."""
 
+    use_hard_constraint = True
+    var_lower_bound = 1.0 if use_hard_constraint else 0.01
+    var_upper_bound = 1.0 if use_hard_constraint else np.inf
+
     print("\n" + "=" * 80)
     print("Non-Linear Benchmark Suite for MaxCorr")
     print("=" * 80)
@@ -1024,6 +1049,9 @@ def main():
         algorithms=["sk", "dk"],
         n_splits=5,
         random_state=42,
+        use_hard_constraint=use_hard_constraint,
+        var_lower_bound=var_lower_bound,
+        var_upper_bound=var_upper_bound,
     )
     tester.print_summary()
 
@@ -1041,6 +1069,9 @@ def main():
         # param_grid=expanded_grid,
         algorithm="dk",
         plot_transformations=True,
+        use_hard_constraint=use_hard_constraint,
+        var_lower_bound=var_lower_bound,
+        var_upper_bound=var_upper_bound,
     )
 
 

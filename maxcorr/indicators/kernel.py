@@ -4,11 +4,14 @@ Giuliani, Eleonora Misino and Michele Lombardi. The code has been partially take
 containing the code of the paper: https://github.com/giuluck/GeneralizedDisparateImpact/tree/main.
 """
 
-from abc import abstractmethod, ABC
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from itertools import chain, combinations_with_replacement
 from math import prod
-from typing import Tuple, Optional, List, Any, Union, Callable, Dict
+from typing import Any, Optional
 
 import numpy as np
 import scipy
@@ -16,7 +19,7 @@ from scipy.optimize import NonlinearConstraint, minimize
 
 from maxcorr.backends import Backend
 from maxcorr.indicators.indicator import CopulaIndicator
-from maxcorr.typing import BackendType, SemanticsType, AlgorithmType
+from maxcorr.typing import AlgorithmType, BackendType, SemanticsType
 
 
 class KernelBasedIndicator(CopulaIndicator):
@@ -29,22 +32,25 @@ class KernelBasedIndicator(CopulaIndicator):
     class Result(CopulaIndicator.Result):
         """Data class representing the results of a KernelBasedIndicator computation."""
 
-        alpha: List[float] = field()
+        alpha: list[float] = field()
         """The coefficient vector for the f copula transformation."""
 
-        beta: List[float] = field()
+        beta: list[float] = field()
         """The coefficient vector for the f copula transformation."""
 
     def __init__(
         self,
-        backend: Union[Backend, BackendType],
+        backend: Backend | BackendType,
         semantics: SemanticsType,
         method: str,
         maxiter: int,
         eps: float,
         tol: float,
         use_lstsq: bool,
-        delta_independent: Optional[float],
+        delta_independent: float | None,
+        use_hard_constraint: bool = True,
+        var_lower_bound: float | None = 0.01,
+        var_upper_bound: float | None = np.inf,
     ):
         """
         :param backend:
@@ -70,15 +76,40 @@ class KernelBasedIndicator(CopulaIndicator):
 
         :param delta_independent:
             A delta value used to select linearly dependent columns and remove them, or None to avoid this step.
+
+        :use_hard_constraint:
+            Whether to use the hard constraint on the variance of the second variable.
+
+        :param var_lower_bound:
+            The lower bound of the variance of the second variable. σ²(Gβ) ≥ ε1
+
+        :param var_upper_bound:
+            The upper bound of the variance of the second variable. σ²(Gβ) ≤ ε2
         """
-        super(KernelBasedIndicator, self).__init__(
-            backend=backend, semantics=semantics, eps=eps
-        )
+        super().__init__(backend=backend, semantics=semantics, eps=eps)
         self._method: str = method
         self._maxiter: int = maxiter
         self._tol: float = tol
         self._use_lstsq: bool = use_lstsq
-        self._delta_independent: Optional[float] = delta_independent
+        self._delta_independent: float | None = delta_independent
+        self._var_lower_bound: float | None = var_lower_bound
+        self._var_upper_bound: float | None = var_upper_bound
+        self._use_hard_constraint: bool = use_hard_constraint
+
+        if var_lower_bound is not None:
+            assert var_lower_bound > 0, "The lower bound must be positive."
+        if var_upper_bound is not None:
+            assert var_upper_bound > 0, "The upper bound must be positive."
+
+        if self._use_hard_constraint:
+            self._var_lower_bound = 1
+            self._var_upper_bound = 1
+        else:
+            if var_lower_bound is None:
+                self._var_lower_bound = 0.01
+
+            if var_upper_bound is None:
+                self._var_upper_bound = 1
 
     @abstractmethod
     def kernel_a(self, a) -> list:
@@ -91,16 +122,16 @@ class KernelBasedIndicator(CopulaIndicator):
         pass
 
     @property
-    def last_result(self) -> Optional[Result]:
+    def last_result(self) -> Result | None:
         # override method to change output type to KernelBasedIndicator.Result
-        return super(KernelBasedIndicator, self).last_result
+        return super().last_result
 
     def __call__(self, a, b) -> Result:
         # override method to change output type to KernelBasedIndicator.Result
-        return super(KernelBasedIndicator, self).__call__(a, b)
+        return super().__call__(a, b)
 
     @property
-    def alpha(self) -> List[float]:
+    def alpha(self) -> list[float]:
         """The alpha vector computed in the last execution."""
         assert self.last_result is not None, (
             "The indicator has not been computed yet, no transformation can be used."
@@ -108,7 +139,7 @@ class KernelBasedIndicator(CopulaIndicator):
         return self.last_result.alpha
 
     @property
-    def beta(self) -> List[float]:
+    def beta(self) -> list[float]:
         """The beta vector computed in the last execution."""
         assert self.last_result is not None, (
             "The indicator has not been computed yet, no transformation can be used."
@@ -136,7 +167,7 @@ class KernelBasedIndicator(CopulaIndicator):
         return self._use_lstsq
 
     @property
-    def delta_independent(self) -> Optional[float]:
+    def delta_independent(self) -> float | None:
         """A delta value used to select linearly dependent columns and remove them, or None to avoid this step."""
         return self._delta_independent
 
@@ -160,7 +191,7 @@ class KernelBasedIndicator(CopulaIndicator):
 
     def _indices(
         self, f: list, g: list
-    ) -> Tuple[Tuple[list, List[int]], Tuple[list, List[int]]]:
+    ) -> tuple[tuple[list, list[int]], tuple[list, list[int]]]:
         def independent(m):
             # add the bias to the matrix
             b = np.ones(shape=(len(m), 1))
@@ -222,11 +253,17 @@ class KernelBasedIndicator(CopulaIndicator):
         return (f_columns, f_indices), (g_columns, g_indices)
 
     def _result(
-        self, a, b, kernel_a: bool, kernel_b: bool, a0: Optional, b0: Optional
-    ) -> Tuple[Any, List[float], List[float]]:
+        self,
+        a,
+        b,
+        kernel_a: bool,
+        kernel_b: bool,
+        a0: Optional,
+        b0: Optional,
+    ) -> tuple[Any, list[float], list[float]]:
         # build the kernel matrices, compute their original degrees, and get the linearly independent indices
         # if the kernels should not be used, create a list of input features by transposing the vector/matrix
-        # and then taking each column as a single vector in the list in order to allow for multidimensional inputs
+        # and then taking each column as a single vector in the list to allow for multidimensional inputs
         n = self.backend.len(a)
         f = self.kernel_a(a) if kernel_a else [v for v in self.backend.transpose(a)]
         g = self.kernel_b(b) if kernel_b else [v for v in self.backend.transpose(b)]
@@ -270,34 +307,194 @@ class KernelBasedIndicator(CopulaIndicator):
             #   - hess:   [  2 * F.T @ F | -2 * F.T @ G ]
             #             [ -2 * G.T @ F |  2 * G.T @ G ] =
             #           =    2 * [F  -G].T @ [F  -G]
-            def _fun(inp):
-                alp, bet = inp[:degree_a], inp[degree_a:]
-                diff_numpy = f_numpy @ alp - g_numpy @ bet
-                obj_func = diff_numpy @ diff_numpy
-                obj_grad = 2 * fg_numpy.T @ diff_numpy
-                return obj_func, obj_grad
 
-            # define the constraint
-            #   - func:   var(G @ beta) --> = 1
-            #   - grad: [ 0 | 2 * G.T @ G @ beta / n ]
-            #   - hess: [ 0 |         0       ]
-            #           [ 0 | 2 * G.T @ G / n ]
-            cst_hess = np.zeros(
-                shape=(degree_a + degree_b, degree_a + degree_b), dtype=float
-            )
-            cst_hess[degree_a:, degree_a:] = 2 * g_numpy.T @ g_numpy / n
-            constraint = NonlinearConstraint(
-                fun=lambda inp: np.var(g_numpy @ inp[degree_a:], ddof=0),
-                jac=lambda inp: np.concatenate(
-                    (
-                        [0] * degree_a,
-                        2 * g_numpy.T @ g_numpy @ inp[degree_a:] / n,
+            if self._use_hard_constraint:
+
+                def _fun(inp):
+                    alp, bet = inp[:degree_a], inp[degree_a:]
+                    diff_numpy = f_numpy @ alp - g_numpy @ bet
+                    obj_func = diff_numpy @ diff_numpy
+                    obj_grad = 2 * fg_numpy.T @ diff_numpy
+                    return obj_func, obj_grad
+
+                # define the constraint
+                #   - func:   var(G @ beta) --> = 1
+                #   - grad: [ 0 | 2 * G.T @ G @ beta / n ]
+                #   - hess: [ 0 |         0       ]
+                #           [ 0 | 2 * G.T @ G / n ]
+
+                def constraint_fun(inp):
+                    """Constraint function: variance of G @ beta"""
+                    return np.var(g_numpy @ inp[degree_a:], ddof=0)
+
+                def constraint_jac(inp):
+                    """Jacobian of the strict variance constraint"""
+                    return np.concatenate(
+                        (
+                            np.zeros(degree_a),
+                            2 * g_numpy.T @ g_numpy @ inp[degree_a:] / n,
+                        )
                     )
-                ),
-                hess=lambda *_: cst_hess,
-                lb=1,
-                ub=1,
-            )
+
+                def constraint_hess(inp, v):
+                    """Hessian of the strict variance constraint times Lagrange multiplier v"""
+                    cst_hess = np.zeros(
+                        shape=(degree_a + degree_b, degree_a + degree_b),
+                        dtype=float,
+                    )
+                    cst_hess[degree_a:, degree_a:] = 2 * g_numpy.T @ g_numpy / n
+                    return v * cst_hess
+
+                constraint = NonlinearConstraint(
+                    fun=constraint_fun,
+                    jac=constraint_jac,
+                    hess=constraint_hess,
+                    lb=self._var_lower_bound,
+                    ub=self._var_upper_bound,
+                )
+
+                def _hess(*_):
+                    return 2 * fg_numpy.T @ fg_numpy
+
+            else:
+                # DEFINE THE OBJECTIVE FUNCTION
+                # min ||Xα - Ỹβ/σ(Ỹβ)||_2² # noqa: RUF003
+
+                def _fun(inp):
+                    """
+                    Objective function and gradient for the new approach.
+
+                    Returns:
+                        tuple: (objective_value, gradient)
+                    """
+                    alp, bet = inp[:degree_a], inp[degree_a:]
+
+                    # Compute transformations
+                    f_val = f_numpy @ alp  # F @ α (shape: n,) # noqa: RUF003
+                    g_val = g_numpy @ bet  # G @ β (shape: n,)
+
+                    # Compute variance and standard deviation of g(B)
+                    var_g = np.var(g_val, ddof=0)  # σ²(Ỹβ)
+                    std_g = np.sqrt(var_g)  # σ(Ỹβ)# noqa: RUF003
+                    std_g_safe = std_g + self.eps  # Avoid division by zero
+
+                    # Normalize second term by its standard deviation
+                    g_normalized = g_val / std_g_safe
+
+                    # Compute residuals: F @ α - (G @ β) / σ(G @ β)  # noqa: RUF003
+                    diff = f_val - g_normalized
+
+                    # Objective: sum of squared residuals
+                    obj_func = diff @ diff
+
+                    ######################
+                    # COMPUTE GRADIENT
+                    ######################
+
+                    # Main gradient: 2 * [F.T | -G.T/sigma] @ diff
+                    grad_main = 2 * np.concatenate(
+                        (f_numpy.T @ diff, -g_numpy.T @ diff / std_g_safe)
+                    )
+
+                    g_mean = np.mean(g_val)
+                    g_centered = g_val - g_mean
+
+                    # Gradient of variance w.r.t. beta
+                    grad_var_beta = 2 * g_numpy.T @ g_centered / n
+
+                    # Mathematical derivation: + (r^T * G  / sigma^3) * grad_var_beta
+                    r_dot_gval = diff @ g_val
+                    correction_coeff = r_dot_gval / (std_g_safe**3)
+
+                    # Total gradient correction (no extra division needed here)
+                    grad_correction = np.concatenate(
+                        (
+                            np.zeros(degree_a),
+                            correction_coeff * grad_var_beta,
+                        )
+                    )
+
+                    obj_grad = grad_main + grad_correction
+
+                    return obj_func, obj_grad
+
+                # Define constraint
+                def constraint_fun(inp):
+                    """Constraint function: variance of g"""
+                    bet = inp[degree_a:]
+                    g_val = g_numpy @ bet
+                    return np.var(g_val, ddof=0)
+
+                def constraint_jac(inp):
+                    """Jacobian of variance constraint"""
+                    bet = inp[degree_a:]
+                    g_val = g_numpy @ bet
+
+                    # ∇ var(G @ β) = (2/n) * G.T @ (G @ β - mean(G @ β))
+                    g_mean = np.mean(g_val)
+                    # g_centered = g_val - g_mean # this one works too
+                    g_centered = g_val  # this one works too
+
+                    grad_var_beta = 2 * g_numpy.T @ g_centered / n
+
+                    return np.concatenate(
+                        (
+                            np.zeros(degree_a),
+                            grad_var_beta,
+                        )
+                    )
+
+                def constraint_hess(inp, v):
+                    """
+                    Hessian of variance constraint times Lagrange multiplier v.
+
+                    Note: v is the Lagrange multiplier (scalar).
+                    """
+                    # ∇² var(G @ β) = (2/n) * G.T @ G
+                    hess = np.zeros(
+                        (degree_a + degree_b, degree_a + degree_b), dtype=float
+                    )
+                    hess[degree_a:, degree_a:] = 2 * g_numpy.T @ g_numpy / n
+
+                    return v * hess
+
+                # Create the inequality constraint object
+                constraint = NonlinearConstraint(
+                    fun=constraint_fun,
+                    jac=constraint_jac,
+                    hess=constraint_hess,
+                    lb=self._var_lower_bound,  # LOWER BOUND: σ² ≥ ε (inequality)
+                    ub=self._var_upper_bound,  # UPPER BOUND
+                )
+
+                # DEFINE THE HESSIAN OF THE OBJECTIVE
+                def _hess(inp):
+                    """
+                    Hessian of objective function.
+                    """
+                    alp, bet = inp[:degree_a], inp[degree_a:]
+
+                    # Compute current values
+                    f_val = f_numpy @ alp
+                    g_val = g_numpy @ bet
+
+                    var_g = np.var(g_val, ddof=0)
+                    std_g = np.sqrt(var_g)
+                    std_g_safe = std_g + self.eps
+
+                    # Hessian: H ≈ 2 * J.T @ J
+                    # where J is the Jacobian matrix of residuals
+
+                    # For residuals r = F @ α - G @ β / σ(G @ β): # noqa: RUF003
+                    # J = [F | -G/σ(G @ β)] # noqa: RUF003
+
+                    j_matrix = np.concatenate((f_numpy, -g_numpy / std_g_safe), axis=1)
+
+                    # Hessian
+                    hess = 2 * j_matrix.T @ j_matrix
+
+                    return hess
+
             # if no guess is provided, set the initial point as [ 1 / std(F @ 1) | 1 / std(G @ 1) ] then solve
             if a0 is None:
                 a0 = np.ones(degree_a) / np.sqrt(
@@ -316,7 +513,7 @@ class KernelBasedIndicator(CopulaIndicator):
             s = minimize(
                 _fun,
                 jac=True,
-                hess=lambda *_: 2 * fg_numpy.T @ fg_numpy,
+                hess=_hess,
                 x0=x0,
                 constraints=[constraint],
                 method=self.method,
@@ -331,7 +528,7 @@ class KernelBasedIndicator(CopulaIndicator):
         fa = self.backend.standardize(self.backend.matmul(f_slim, alpha), eps=self.eps)
         gb = self.backend.standardize(self.backend.matmul(g_slim, beta), eps=self.eps)
         value = self.backend.mean(fa * gb)
-        # reconstruct alpha and beta by adding zeros for the ignored indices, and normalize for ease of comparison
+        # reconstruct alpha and beta by adding zeros for the ignored indices and normalize for ease of comparison
         alpha_full = np.zeros(len(f))
         alpha_full[f_indices] = alpha_numpy
         alpha_full = alpha_full / np.abs(alpha_full).sum()
@@ -372,16 +569,19 @@ class DoubleKernelIndicator(KernelBasedIndicator, ABC):
 
     def __init__(
         self,
-        kernel_a: Union[int, Callable[[Any], list]] = 3,
-        kernel_b: Union[int, Callable[[Any], list]] = 3,
-        backend: Union[Backend, BackendType] = "numpy",
+        kernel_a: int | Callable[[Any], list] = 3,
+        kernel_b: int | Callable[[Any], list] = 3,
+        backend: Backend | BackendType = "numpy",
         semantics: SemanticsType = "hgr",
         method: str = "trust-constr",
         maxiter: int = 1000,
         eps: float = 1e-9,
         tol: float = 1e-9,
         use_lstsq: bool = True,
-        delta_independent: Optional[float] = None,
+        delta_independent: float | None = None,
+        use_hard_constraint: bool = True,
+        var_lower_bound: float | None = 0.01,
+        var_upper_bound: float | None = np.inf,
     ):
         """
         :param kernel_a:
@@ -414,7 +614,7 @@ class DoubleKernelIndicator(KernelBasedIndicator, ABC):
         :param delta_independent:
             A delta value used to select linearly dependent columns and remove them, or None to avoid this step.
         """
-        super(DoubleKernelIndicator, self).__init__(
+        super().__init__(
             backend=backend,
             semantics=semantics,
             method=method,
@@ -423,19 +623,28 @@ class DoubleKernelIndicator(KernelBasedIndicator, ABC):
             tol=tol,
             use_lstsq=use_lstsq,
             delta_independent=delta_independent,
+            use_hard_constraint=use_hard_constraint,
+            var_lower_bound=var_lower_bound,
+            var_upper_bound=var_upper_bound,
         )
 
         # handle kernels
         if isinstance(kernel_a, int):
             degree_a = kernel_a
-            kernel_a = lambda a: KernelBasedIndicator._poly_kernel(
-                a, degree=degree_a, backend=self.backend
-            )
+
+            def kernel_a(a):
+                return KernelBasedIndicator._poly_kernel(
+                    a, degree=degree_a, backend=self.backend
+                )
+
         if isinstance(kernel_b, int):
             degree_b = kernel_b
-            kernel_b = lambda b: KernelBasedIndicator._poly_kernel(
-                b, degree=degree_b, backend=self.backend
-            )
+
+            def kernel_b(b):
+                return KernelBasedIndicator._poly_kernel(
+                    b, degree=degree_b, backend=self.backend
+                )
+
         self._kernel_a: Callable[[Any], list] = kernel_a
         self._kernel_b: Callable[[Any], list] = kernel_b
 
@@ -445,7 +654,7 @@ class DoubleKernelIndicator(KernelBasedIndicator, ABC):
     def kernel_b(self, b) -> list:
         return self._kernel_b(b)
 
-    def _compute(self, a, b) -> Tuple[Any, Dict[str, Any]]:
+    def _compute(self, a, b) -> tuple[Any, dict[str, Any]]:
         # noinspection PyUnresolvedReferences
         a0, b0 = (
             (None, None)
@@ -468,15 +677,18 @@ class SingleKernelIndicator(KernelBasedIndicator, ABC):
 
     def __init__(
         self,
-        kernel: Union[int, Callable[[Any], list]] = 3,
-        backend: Union[Backend, BackendType] = "numpy",
+        kernel: int | Callable[[Any], list] = 3,
+        backend: Backend | BackendType = "numpy",
         semantics: SemanticsType = "hgr",
         method: str = "trust-constr",
         maxiter: int = 1000,
         eps: float = 1e-9,
         tol: float = 1e-9,
         use_lstsq: bool = True,
-        delta_independent: Optional[float] = None,
+        delta_independent: float | None = None,
+        use_hard_constraint: bool = True,
+        var_lower_bound: float | None = 0.01,
+        var_upper_bound: float | None = np.inf,
     ):
         """
         :param kernel:
@@ -506,7 +718,7 @@ class SingleKernelIndicator(KernelBasedIndicator, ABC):
         :param delta_independent:
             A delta value used to select linearly dependent columns and remove them, or None to avoid this step.
         """
-        super(SingleKernelIndicator, self).__init__(
+        super().__init__(
             backend=backend,
             semantics=semantics,
             method=method,
@@ -515,14 +727,20 @@ class SingleKernelIndicator(KernelBasedIndicator, ABC):
             tol=tol,
             use_lstsq=use_lstsq,
             delta_independent=delta_independent,
+            use_hard_constraint=use_hard_constraint,
+            var_lower_bound=var_lower_bound,
+            var_upper_bound=var_upper_bound,
         )
 
         # handle kernel
         if isinstance(kernel, int):
             degree = kernel
-            kernel = lambda x: KernelBasedIndicator._poly_kernel(
-                x, degree=degree, backend=self.backend
-            )
+
+            def kernel(x):
+                return KernelBasedIndicator._poly_kernel(
+                    x, degree=degree, backend=self.backend
+                )
+
         self._kernel: Callable[[Any], list] = kernel
 
     def kernel(self, x) -> list:
@@ -535,7 +753,7 @@ class SingleKernelIndicator(KernelBasedIndicator, ABC):
     def kernel_b(self, b) -> list:
         return self.kernel(b)
 
-    def _compute(self, a, b) -> Tuple[Any, Dict[str, Any]]:
+    def _compute(self, a, b) -> tuple[Any, dict[str, Any]]:
         # noinspection PyUnresolvedReferences
         a0, b0 = (
             (None, None)
