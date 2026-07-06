@@ -280,4 +280,4 @@ class CopulaIndicator(Indicator):
         fa = self.backend.standardize(self._f(a=a), eps=self.eps)
         gb = self.backend.standardize(self._g(b=b), eps=self.eps)
         value = self.backend.mean(fa * gb) * self._factor(a=a, b=b)
-        return self.backend.item(value)
+        return self.backend.abs(self.backend.item(value))

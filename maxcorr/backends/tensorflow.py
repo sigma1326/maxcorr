@@ -1,5 +1,9 @@
+from __future__ import annotations
+
+import builtins
 import importlib.util
-from typing import Any, Type, Union, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 
@@ -16,10 +20,10 @@ class TensorflowBackend(Backend):
         setup_cuda_paths()
         import tensorflow
 
-        super(TensorflowBackend, self).__init__(backend=tensorflow)
+        super().__init__(backend=tensorflow)
 
     @property
-    def type(self) -> Type:
+    def type(self) -> builtins.type:
         return self._backend.Tensor
 
     def floating(self, v) -> bool:
@@ -49,7 +53,7 @@ class TensorflowBackend(Backend):
         # noinspection PyUnresolvedReferences
         return v.numpy()
 
-    def stack(self, v: list, axis: Union[int, Iterable[int]] = 0) -> Any:
+    def stack(self, v: list, axis: int | Iterable[int] = 0) -> Any:
         return self._backend.stack(v, axis=axis)
 
     def matmul(self, v, w) -> Any:
@@ -57,10 +61,10 @@ class TensorflowBackend(Backend):
         w = self.reshape(w, shape=(-1, 1)) if self.ndim(w) == 1 else w
         return self._backend.squeeze(self._backend.linalg.matmul(v, w))
 
-    def mean(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def mean(self, v, axis: None | int | Iterable[int] = None) -> Any:
         return self._backend.math.reduce_mean(v, axis=axis)
 
-    def sum(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def sum(self, v, axis: None | int | Iterable[int] = None) -> Any:
         return self._backend.math.reduce_sum(v, axis=axis)
 
     def cov(self, v, w) -> Any:
@@ -68,7 +72,7 @@ class TensorflowBackend(Backend):
         inp = inp - self.mean(inp, axis=0)
         return self.matmul(self._backend.transpose(inp), inp) / self.len(v)
 
-    def var(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def var(self, v, axis: None | int | Iterable[int] = None) -> Any:
         return self._backend.math.reduce_variance(v, axis=axis)
 
     # noinspection PyPep8Naming
@@ -77,3 +81,9 @@ class TensorflowBackend(Backend):
         b = self.reshape(b, shape=(-1, 1))
         w = self._backend.linalg.lstsq(A, b, fast=False)
         return self.reshape(w, shape=-1)
+
+    def max(self, v, axis: None | int | Iterable[int] = None) -> Any:
+        return self._backend.max(v, axis=axis)
+
+    def min(self, v, axis: None | int | Iterable[int] = None) -> Any:
+        return self._backend.min(v, axis=axis)

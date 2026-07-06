@@ -72,7 +72,9 @@ class BaselineCalibrator:
                 {
                     "Degree": degree,
                     "Train Score": cv_result.mean_train_score,
+                    "Train Std": cv_result.std_train_score,
                     "Test Score": cv_result.mean_test_score,
+                    "Test Std": cv_result.std_test_score,
                     "Overfitting Gap": abs(
                         cv_result.mean_train_score - cv_result.mean_test_score
                     ),
@@ -87,9 +89,13 @@ class BaselineCalibrator:
         """Plots the learning curve to visually prove the empirical ceiling."""
         plt.figure(figsize=(10, 6))
 
-        # Plot Train and Test scores
+        # Plot Train and Test scores (Main Lines)
         plt.plot(
-            df["Degree"], df["Train Score"], "b.-", label="Train Score", linewidth=2
+            df["Degree"],
+            df["Train Score"],
+            "b.-",
+            label="Train Score",
+            linewidth=2,
         )
         plt.plot(
             df["Degree"],
@@ -97,6 +103,28 @@ class BaselineCalibrator:
             "g.-",
             label="Test Score (Cross-Validated)",
             linewidth=2,
+        )
+
+        # Plot the Standard Deviation Bands
+        # Subtract and add the Std to the Mean score to create the lower and upper bounds of the band.
+        plt.fill_between(
+                df["Degree"],
+                df["Train Score"] - df["Train Std"],
+                df["Train Score"] + df["Train Std"],
+                color="blue",
+                alpha=0.20, # High transparency so it doesn't overpower the plot
+                label="Train Std Dev",
+                zorder=1    # Pushes the fill behind the main lines
+        )
+
+        plt.fill_between(
+                df["Degree"],
+                df["Test Score"] - df["Test Std"],
+                df["Test Score"] + df["Test Std"],
+                color="green",
+                alpha=0.15,
+                label="Test Std Dev",
+                zorder=1
         )
 
         # Highlight the Empirical Ceiling (Max Test Score)

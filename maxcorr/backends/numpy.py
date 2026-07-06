@@ -1,5 +1,9 @@
+from __future__ import annotations
+
+import builtins
 import importlib.util
-from typing import Any, Type, Optional, Union, Iterable
+from collections.abc import Iterable
+from typing import Any, Optional
 
 import numpy as np
 
@@ -16,10 +20,10 @@ class NumpyBackend(Backend):
         return cls._instance
 
     def __init__(self):
-        super(NumpyBackend, self).__init__(backend=np)
+        super().__init__(backend=np)
 
     @property
-    def type(self) -> Type:
+    def type(self) -> builtins.type:
         return np.ndarray
 
     def floating(self, v) -> bool:
@@ -42,24 +46,30 @@ class NumpyBackend(Backend):
     def numpy(self, v, dtype=None) -> np.ndarray:
         return v
 
-    def stack(self, v: list, axis: Union[int, Iterable[int]] = 0) -> Any:
+    def stack(self, v: list, axis: int | Iterable[int] = 0) -> Any:
         return self._backend.stack(v, axis=axis)
 
     def matmul(self, v, w) -> Any:
         return self._backend.matmul(v, w)
 
-    def mean(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def mean(self, v, axis: None | int | Iterable[int] = None) -> Any:
         return self._backend.mean(v, axis=axis)
 
-    def sum(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def sum(self, v, axis: None | int | Iterable[int] = None) -> Any:
         return self._backend.sum(v, axis=axis)
 
     def cov(self, v, w) -> Any:
         return self._backend.cov(v, w, ddof=0)
 
-    def var(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def var(self, v, axis: None | int | Iterable[int] = None) -> Any:
         return self._backend.var(v, axis=axis, ddof=0)
 
     # noinspection PyPep8Naming
     def lstsq(self, A, b) -> Any:
         return self._backend.linalg.lstsq(A, b, rcond=None)[0]
+
+    def max(self, v, axis: None | int | Iterable[int] = None) -> Any:
+        return self._backend.max(v, axis=axis)
+
+    def min(self, v, axis: None | int | Iterable[int] = None) -> Any:
+        return self._backend.min(v, axis=axis)

@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import importlib.util
-from typing import Any, Type, Union, Iterable
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 
@@ -16,10 +19,10 @@ class TorchBackend(Backend):
         setup_cuda_paths()
         import torch
 
-        super(TorchBackend, self).__init__(backend=torch)
+        super().__init__(backend=torch)
 
     @property
-    def type(self) -> Type:
+    def type(self) -> type:
         return self._backend.Tensor
 
     def floating(self, v) -> bool:
@@ -42,7 +45,7 @@ class TorchBackend(Backend):
         # noinspection PyUnresolvedReferences
         return v.detach().cpu().numpy()
 
-    def stack(self, v: list, axis: Union[int, Iterable[int]] = 0) -> Any:
+    def stack(self, v: list, axis: int | Iterable[int] = 0) -> Any:
         kwargs = dict() if axis is None else dict(dim=axis)
         return self._backend.stack(v, **kwargs)
 
@@ -52,11 +55,11 @@ class TorchBackend(Backend):
     def transpose(self, v: Any) -> Any:
         return self.reshape(v, shape=(self.len(v), -1)).T
 
-    def mean(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def mean(self, v, axis: None | int | Iterable[int] = None) -> Any:
         kwargs = dict() if axis is None else dict(dim=axis)
         return self._backend.mean(v, **kwargs)
 
-    def sum(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def sum(self, v, axis: None | int | Iterable[int] = None) -> Any:
         kwargs = dict() if axis is None else dict(dim=axis)
         return self._backend.sum(v, **kwargs)
 
@@ -64,7 +67,7 @@ class TorchBackend(Backend):
         inp = self.stack([v, w])
         return self._backend.cov(inp, correction=0)
 
-    def var(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def var(self, v, axis: None | int | Iterable[int] = None) -> Any:
         kwargs = dict() if axis is None else dict(dim=axis)
         return self._backend.var(v, unbiased=False, **kwargs)
 
@@ -72,3 +75,13 @@ class TorchBackend(Backend):
     def lstsq(self, A, b) -> Any:
         # the 'gelsd' driver allows to have both more precise and more reproducible results
         return self._backend.linalg.lstsq(A, b, driver="gelsd")[0]
+
+    def max(self, v, axis: None | int | Iterable[int] = None) -> Any:
+        kwargs = dict() if axis is None else dict(dim=axis)
+        # amax is used because it supports multi-dimensional reduction and returns only values
+        return self._backend.amax(v, **kwargs)
+
+    def min(self, v, axis: None | int | Iterable[int] = None) -> Any:
+        kwargs = dict() if axis is None else dict(dim=axis)
+        # amin is used because it supports multi-dimensional reduction and returns only values
+        return self._backend.amin(v, **kwargs)

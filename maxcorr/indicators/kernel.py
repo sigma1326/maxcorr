@@ -475,7 +475,7 @@ class KernelBasedIndicator(CopulaIndicator):
                     alp, bet = inp[:degree_a], inp[degree_a:]
 
                     # Compute current values
-                    f_val = f_numpy @ alp
+                    # f_val = f_numpy @ alp
                     g_val = g_numpy @ bet
 
                     var_g = np.var(g_val, ddof=0)
@@ -543,18 +543,45 @@ class KernelBasedIndicator(CopulaIndicator):
         )
 
     @staticmethod
+    # def _poly_kernel(v, degree: int, backend: Backend) -> list:
+    #     # build the polynomial kernel expansion from the input vector <v>
+    #     if backend.ndim(v) == 1:
+    #         return [v**d for d in np.arange(degree) + 1]
+    #     else:
+    #         _, features = backend.shape(v)
+    #         iterables = [
+    #             combinations_with_replacement(range(features), d + 1)
+    #             for d in range(degree)
+    #         ]
+    #         return [
+    #             prod([v[:, i] for i in indices])
+    #             for indices in chain.from_iterable(iterables)
+    #         ]
+
     def _poly_kernel(v, degree: int, backend: Backend) -> list:
-        # build the polynomial kernel expansion from the input vector <v>
-        if backend.ndim(v) == 1:
-            return [v**d for d in np.arange(degree) + 1]
+        # Neutralize the Vandermonde Explosion by scaling to [-1, 1]
+        # v_min = backend.min(v)
+        v_min = np.min(v)
+        v_max = backend.max(v)
+        v_max = np.max(v)
+
+        # Add a microscopic safety net in case the user passes a constant vector
+        v_range = backend.maximum(v_max - v_min, 1e-9)
+
+        # Apply Min-Max scaling: (b - a) * (v - min) / (max - min) + a
+        v_scaled = 2 * (v - v_min) / v_range - 1.0
+
+        # Build the polynomial kernel expansion from the mathematically safe vector
+        if backend.ndim(v_scaled) == 1:
+            return [v_scaled**d for d in np.arange(degree) + 1]
         else:
-            _, features = backend.shape(v)
+            _, features = backend.shape(v_scaled)
             iterables = [
                 combinations_with_replacement(range(features), d + 1)
                 for d in range(degree)
             ]
             return [
-                prod([v[:, i] for i in indices])
+                prod([v_scaled[:, i] for i in indices])
                 for indices in chain.from_iterable(iterables)
             ]
 
