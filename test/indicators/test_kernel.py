@@ -1,9 +1,9 @@
-from typing import Type, List, Tuple
+import builtins
 
 from maxcorr import (
-    Indicator,
-    DoubleKernelIndicator,
     BackendType,
+    DoubleKernelIndicator,
+    Indicator,
     SemanticsType,
     SingleKernelIndicator,
 )
@@ -15,8 +15,8 @@ class TestDoubleKernelIndicator(TestIndicator):
         self,
         backend: BackendType,
         semantics: SemanticsType,
-        dim: Tuple[int, int],
-    ) -> List[Indicator]:
+        dim: tuple[int, int],
+    ) -> list[Indicator]:
         return [
             DoubleKernelIndicator(
                 backend=backend,
@@ -62,7 +62,7 @@ class TestDoubleKernelIndicator(TestIndicator):
         ]
 
     @property
-    def result_type(self) -> Type:
+    def result_type(self) -> type:
         return DoubleKernelIndicator.Result
 
 
@@ -71,8 +71,8 @@ class TestSingleKernelIndicator(TestIndicator):
         self,
         backend: BackendType,
         semantics: SemanticsType,
-        dim: Tuple[int, int],
-    ) -> List[Indicator]:
+        dim: tuple[int, int],
+    ) -> list[Indicator]:
         return [
             SingleKernelIndicator(
                 backend=backend,
@@ -94,5 +94,5 @@ class TestSingleKernelIndicator(TestIndicator):
         ]
 
     @property
-    def result_type(self) -> Type:
+    def result_type(self) -> builtins.type:
         return SingleKernelIndicator.Result

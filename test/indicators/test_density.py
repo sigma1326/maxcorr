@@ -1,7 +1,7 @@
-from typing import Type, List, Tuple
+import builtins
 
 from maxcorr import BackendType, SemanticsType
-from maxcorr.indicators import Indicator, DensityIndicator
+from maxcorr.indicators import DensityIndicator, Indicator
 from test.indicators.test_indicator import TestIndicator
 
 
@@ -10,19 +10,25 @@ class TestDensityIndicator(TestIndicator):
         self,
         backend: BackendType,
         semantics: SemanticsType,
-        dim: Tuple[int, int],
-    ) -> List[Indicator]:
+        dim: tuple[int, int],
+    ) -> list[Indicator]:
         return (
             [
                 DensityIndicator(
-                    backend=backend, semantics=semantics, chi_square=False
+                    backend=backend,
+                    semantics=semantics,
+                    chi_square=False,
                 ),
-                DensityIndicator(backend=backend, semantics=semantics, chi_square=True),
+                DensityIndicator(
+                    backend=backend,
+                    semantics=semantics,
+                    chi_square=True,
+                ),
             ]
             if dim == (1, 1)
             else []
         )
 
     @property
-    def result_type(self) -> Type:
+    def result_type(self) -> builtins.type:
         return DensityIndicator.Result

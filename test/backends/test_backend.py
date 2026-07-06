@@ -1,6 +1,7 @@
 import unittest
 from abc import abstractmethod
-from typing import Any, Iterable, Union, Type, Tuple
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 import pytest
@@ -22,7 +23,7 @@ class TestBackend(unittest.TestCase):
     # noinspection PyTypeChecker
     @property
     @abstractmethod
-    def type(self) -> Type:
+    def type(self) -> type:
         pytest.skip(reason="Abstract Test Class")
 
     @abstractmethod
@@ -31,11 +32,11 @@ class TestBackend(unittest.TestCase):
 
     def vectors(
         self,
-        shape: Union[int, Iterable[int]] = 10,
+        shape: int | Iterable[int] = 10,
         seed: int = 0,
         integer: bool = False,
         positive: bool = False,
-    ) -> Tuple[list, Any]:
+    ) -> tuple[list, Any]:
         rng = np.random.default_rng(seed=seed)
         vector = rng.integers(0, 10, size=shape) if integer else rng.normal(size=shape)
         vector = np.abs(vector) if positive else vector

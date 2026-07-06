@@ -1,10 +1,10 @@
-from typing import Type, List, Tuple
+import builtins
 
 from maxcorr import (
-    NeuralIndicator,
     BackendType,
-    SemanticsType,
     LatticeIndicator,
+    NeuralIndicator,
+    SemanticsType,
 )
 from maxcorr.indicators import Indicator
 from test.indicators.test_indicator import TestIndicator
@@ -15,8 +15,8 @@ class TestNeuralIndicator(TestIndicator):
         self,
         backend: BackendType,
         semantics: SemanticsType,
-        dim: Tuple[int, int],
-    ) -> List[Indicator]:
+        dim: tuple[int, int],
+    ) -> list[Indicator]:
         out = [NeuralIndicator(backend=backend, semantics=semantics, num_features=dim)]
         if dim[0] == 1:
             out.append(
@@ -48,7 +48,7 @@ class TestNeuralIndicator(TestIndicator):
         return out
 
     @property
-    def result_type(self) -> Type:
+    def result_type(self) -> type:
         return NeuralIndicator.Result
 
 
@@ -57,8 +57,8 @@ class TestLatticeIndicator(TestIndicator):
         self,
         backend: BackendType,
         semantics: SemanticsType,
-        dim: Tuple[int, int],
-    ) -> List[Indicator]:
+        dim: tuple[int, int],
+    ) -> list[Indicator]:
         df, dg = dim
         out = [
             LatticeIndicator(
@@ -98,5 +98,5 @@ class TestLatticeIndicator(TestIndicator):
         return out
 
     @property
-    def result_type(self) -> Type:
+    def result_type(self) -> builtins.type:
         return NeuralIndicator.Result

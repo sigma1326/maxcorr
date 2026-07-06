@@ -1,8 +1,8 @@
-from typing import Type, List, Tuple
+import builtins
 
 import numpy as np
 
-from maxcorr import BackendType, SemanticsType, RandomizedIndicator
+from maxcorr import BackendType, RandomizedIndicator, SemanticsType
 from maxcorr.indicators import Indicator
 from test.indicators.test_indicator import TestIndicator
 
@@ -12,15 +12,19 @@ class TestRandomizedIndicator(TestIndicator):
         self,
         backend: BackendType,
         semantics: SemanticsType,
-        dim: Tuple[int, int],
-    ) -> List[Indicator]:
+        dim: tuple[int, int],
+    ) -> list[Indicator]:
         return (
             [
                 RandomizedIndicator(
-                    backend=backend, semantics=semantics, functions=np.sin
+                    backend=backend,
+                    semantics=semantics,
+                    functions=np.sin,
                 ),
                 RandomizedIndicator(
-                    backend=backend, semantics=semantics, functions=np.cos
+                    backend=backend,
+                    semantics=semantics,
+                    functions=np.cos,
                 ),
             ]
             if dim == (1, 1)
@@ -28,5 +32,5 @@ class TestRandomizedIndicator(TestIndicator):
         )
 
     @property
-    def result_type(self) -> Type:
+    def result_type(self) -> builtins.type:
         return RandomizedIndicator.Result

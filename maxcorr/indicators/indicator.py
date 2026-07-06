@@ -1,14 +1,17 @@
+from __future__ import annotations
+
 from abc import abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Optional, Callable, Union, Tuple, Dict
+from typing import Any
 
 from maxcorr.backends import (
-    NumpyBackend,
-    TorchBackend,
     Backend,
+    NumpyBackend,
     TensorflowBackend,
+    TorchBackend,
 )
-from maxcorr.typing import BackendType, SemanticsType, AlgorithmType
+from maxcorr.typing import AlgorithmType, BackendType, SemanticsType
 
 
 class Indicator:
@@ -71,7 +74,7 @@ class Indicator:
         def __repr__(self) -> str:
             return f"Result(value={self.value})"
 
-    def __init__(self, backend: Union[Backend, BackendType], semantics: SemanticsType):
+    def __init__(self, backend: Backend | BackendType, semantics: SemanticsType):
         """
         :param backend:
             The backend to use to compute the indicator, or its alias.
@@ -103,7 +106,7 @@ class Indicator:
         self._backend: Backend = backend
         self._semantics: SemanticsType = semantics
         self._factor: Callable[[Any, Any], Any] = factor
-        self._last_result: Optional[Indicator.Result] = None
+        self._last_result: Indicator.Result | None = None
         self._num_calls: int = 0
 
     algorithm: AlgorithmType
@@ -120,7 +123,7 @@ class Indicator:
         return self._semantics
 
     @property
-    def last_result(self) -> Optional[Result]:
+    def last_result(self) -> Result | None:
         """The `Result` instance returned from the last indicator call, or None if no call was performed."""
         return self._last_result
 
@@ -181,7 +184,7 @@ class Indicator:
         return result
 
     @abstractmethod
-    def _compute(self, a, b) -> Tuple[Any, Dict[str, Any]]:
+    def _compute(self, a, b) -> tuple[Any, dict[str, Any]]:
         """Computes the value of the indicator.
 
         :param a:
@@ -204,7 +207,7 @@ class CopulaIndicator(Indicator):
 
     def __init__(
         self,
-        backend: Union[Backend, BackendType],
+        backend: Backend | BackendType,
         semantics: SemanticsType,
         eps: float,
     ):
@@ -218,7 +221,7 @@ class CopulaIndicator(Indicator):
         :param eps:
             The epsilon value used to avoid division by zero in case of null standard deviation.
         """
-        super(CopulaIndicator, self).__init__(backend=backend, semantics=semantics)
+        super().__init__(backend=backend, semantics=semantics)
         self._eps: float = eps
 
     @property

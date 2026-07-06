@@ -1,6 +1,10 @@
+from __future__ import annotations
+
+import builtins
 import unittest
 from abc import abstractmethod
-from typing import Type, List, Dict, Union, Tuple, Iterable, Any
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 import pytest
@@ -22,13 +26,13 @@ class TestIndicator(unittest.TestCase):
 
     DIM: int = 3
 
-    BACKENDS: Dict[BackendType, Backend] = {
+    BACKENDS: dict[BackendType, Backend] = {  # noqa: RUF012
         "numpy": NumpyBackend(),
         "torch": TorchBackend(),
         "tensorflow": TensorflowBackend(),
     }
 
-    SEMANTICS: List[SemanticsType] = ["hgr", "gedi", "nlc"]
+    SEMANTICS: list[SemanticsType] = ["hgr", "gedi", "nlc"]  # noqa: RUF012
 
     # noinspection PyTypeChecker
     @abstractmethod
@@ -36,20 +40,18 @@ class TestIndicator(unittest.TestCase):
         self,
         backend: BackendType,
         semantics: SemanticsType,
-        dim: Tuple[int, int],
-    ) -> List[Indicator]:
+        dim: tuple[int, int],
+    ) -> list[Indicator]:
         pytest.skip(reason="Abstract Test Class")
 
     # noinspection PyTypeChecker
     @property
     @abstractmethod
-    def result_type(self) -> Type:
+    def result_type(self) -> builtins.type:
         pytest.skip(reason="Abstract Test Class")
 
     @staticmethod
-    def vector(
-        seed: int, backend: Backend, size: Union[int, Iterable[int]] = LENGTH
-    ) -> Any:
+    def vector(seed: int, backend: Backend, size: int | Iterable[int] = LENGTH) -> Any:
         return backend.cast(
             v=np.random.default_rng(seed=seed).normal(size=size), dtype=float
         )

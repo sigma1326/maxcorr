@@ -108,23 +108,23 @@ class BaselineCalibrator:
         # Plot the Standard Deviation Bands
         # Subtract and add the Std to the Mean score to create the lower and upper bounds of the band.
         plt.fill_between(
-                df["Degree"],
-                df["Train Score"] - df["Train Std"],
-                df["Train Score"] + df["Train Std"],
-                color="blue",
-                alpha=0.20, # High transparency so it doesn't overpower the plot
-                label="Train Std Dev",
-                zorder=1    # Pushes the fill behind the main lines
+            df["Degree"],
+            df["Train Score"] - df["Train Std"],
+            df["Train Score"] + df["Train Std"],
+            color="blue",
+            alpha=0.20,  # High transparency so it doesn't overpower the plot
+            label="Train Std Dev",
+            zorder=1,  # Pushes the fill behind the main lines
         )
 
         plt.fill_between(
-                df["Degree"],
-                df["Test Score"] - df["Test Std"],
-                df["Test Score"] + df["Test Std"],
-                color="green",
-                alpha=0.15,
-                label="Test Std Dev",
-                zorder=1
+            df["Degree"],
+            df["Test Score"] - df["Test Std"],
+            df["Test Score"] + df["Test Std"],
+            color="green",
+            alpha=0.15,
+            label="Test Std Dev",
+            zorder=1,
         )
 
         # Highlight the Empirical Ceiling (Max Test Score)
