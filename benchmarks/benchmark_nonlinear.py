@@ -21,6 +21,7 @@ Datasets included:
 
 from __future__ import annotations
 
+import time
 import warnings
 from dataclasses import dataclass
 
@@ -32,7 +33,7 @@ import seaborn as sns
 from matplotlib.lines import Line2D
 from sklearn.datasets import make_circles, make_moons, make_swiss_roll
 
-from maxcorr import indicator
+from maxcorr import AlgorithmType, SemanticsType, indicator
 from maxcorr.cross_validation import find_best_params
 
 warnings.filterwarnings("ignore")
@@ -49,6 +50,7 @@ class TestResult:
     train_score: float
     test_std: float
     train_std: float
+    compute_time: float
     n_samples: int
     n_folds: int
 
@@ -432,11 +434,14 @@ class NonLinearIndicatorTester:
         a: np.ndarray,
         b: np.ndarray,
         dataset_name: str,
-        algorithm: str = "sk",
+        algorithm: AlgorithmType = "sk",
         param_grid: dict | None = None,
         n_splits: int = 5,
-        semantics: str = "hgr",
+        semantics: SemanticsType = "hgr",
         plot_transformations: bool = False,
+        use_hard_constraint: bool = True,
+        var_lower_bound: float = 1.0,
+        var_upper_bound: float = 1.0,
     ) -> TestResult:
         """Test indicator on a single dataset."""
 
@@ -447,12 +452,23 @@ class NonLinearIndicatorTester:
                 else {"kernel_a": [3, 4, 5], "kernel_b": [3, 4, 5]}
             )
 
+        param_grid.update(
+            **{
+                "use_hard_constraint": [use_hard_constraint],
+                "var_lower_bound": [var_lower_bound],
+                "var_upper_bound": [var_upper_bound],
+            }
+        )
+
         if self.verbose:
             print(f"\n{'=' * 80}")
             print(f"Testing: {dataset_name}")
             print(f"Algorithm: {algorithm} | Semantics: {semantics}")
             print(f"Samples: {len(a)} | Folds: {n_splits}")
             print(f"{'=' * 80}")
+
+        # Start the high-resolution timer right before optimization begins
+        start_time = time.perf_counter()
 
         best_params, cv_result = find_best_params(
             a,
@@ -464,6 +480,10 @@ class NonLinearIndicatorTester:
             verbose=0,  # Suppress internal verbosity
         )
 
+        # Stop the timer and calculate the delta
+        end_time = time.perf_counter()
+        elapsed_time = end_time - start_time
+
         result = TestResult(
             dataset_name=dataset_name,
             algorithm=algorithm,
@@ -472,6 +492,7 @@ class NonLinearIndicatorTester:
             train_score=cv_result.mean_train_score,
             test_std=cv_result.std_test_score,
             train_std=cv_result.std_train_score,
+            compute_time=elapsed_time,
             n_samples=len(a),
             n_folds=n_splits,
         )
@@ -481,6 +502,7 @@ class NonLinearIndicatorTester:
             print(f"✓ Test score: {result.test_score:.6f} ± {result.test_std:.6f}")
             print(f"✓ Train score: {result.train_score:.6f} ± {result.train_std:.6f}")
             print(f"✓ Overfitting gap: {result.overfitting_gap:.6f}")
+            print(f"✓ Computation Time: {result.compute_time:.2f} seconds")
             print(f"✓ Status: {result.status}")
 
             interpretation = self.interpreter.interpret_score(
@@ -519,6 +541,9 @@ class NonLinearIndicatorTester:
         random_state: int = 42,
         datasets: list[tuple[np.ndarray, np.ndarray, str]] | None = None,
         plot_proofs: bool = False,
+        use_hard_constraint: bool = True,
+        var_lower_bound: float = 1.0,
+        var_upper_bound: float = 1.0,
     ) -> pd.DataFrame:
         """Test indicator on all available datasets."""
 
@@ -549,6 +574,9 @@ class NonLinearIndicatorTester:
                     algorithm=algo,
                     n_splits=n_splits,
                     semantics=semantics,
+                    use_hard_constraint=use_hard_constraint,
+                    var_lower_bound=var_lower_bound,
+                    var_upper_bound=var_upper_bound,
                 )
 
         # Trigger the 5-column proof using the CV results
@@ -570,6 +598,7 @@ class NonLinearIndicatorTester:
                     "Test Std": r.test_std,
                     "Train Score": r.train_score,
                     "Train Std": r.train_std,
+                    "Compute Time (s)": r.compute_time,
                     "Overfitting Gap": r.overfitting_gap,
                     "Status": r.status,
                     "Best Params": str(r.best_params),
@@ -711,7 +740,7 @@ class NonLinearVisualizer:
     def plot_results_comparison(df: pd.DataFrame, save_path: str | None = None):
         """Create a 4-panel comparison plot comparing algorithms side-by-side with full legends and data labels."""
 
-        fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+        fig, axes = plt.subplots(3, 2, figsize=(16, 18))
 
         # Sort DataFrame alphabetically by Dataset so the Y-axis is perfectly aligned
         df_sorted = df.sort_values(by=["Dataset", "Algorithm"], ascending=[False, True])
@@ -744,8 +773,26 @@ class NonLinearVisualizer:
         # Universal Legend
         ax.legend(handles=[sk_patch, dk_patch], loc="lower right")
 
-        # Panel 2: Overfitting Gap
+        # Panel 2: Computation Time
         ax = axes[0, 1]
+        sns.barplot(
+            data=df_sorted,
+            y="Dataset",
+            x="Compute Time (s)",
+            hue="Algorithm",
+            palette=palette,
+            ax=ax,
+        )
+        ax.set_xlabel("Time in Seconds (Lower is better)", fontweight="bold")
+        ax.set_ylabel("")
+        ax.set_title("Computational Cost (SK vs DK)", fontweight="bold", fontsize=12)
+        ax.grid(True, alpha=0.3, axis="x")
+
+        # Unified Legend for Panel 2
+        ax.legend(handles=[sk_patch, dk_patch], loc="lower right")
+
+        # Panel 3: Overfitting Gap
+        ax = axes[1, 0]
         sns.barplot(
             data=df_sorted,
             y="Dataset",
@@ -789,8 +836,8 @@ class NonLinearVisualizer:
         )
         ax.grid(True, alpha=0.3, axis="x")
 
-        # Panel 3: Train vs. Test Scatter
-        ax = axes[1, 0]
+        # Panel 4: Train vs. Test Scatter
+        ax = axes[1, 1]
         sns.scatterplot(
             data=df_sorted,
             x="Train Score",
@@ -873,8 +920,8 @@ class NonLinearVisualizer:
                     fontweight="medium",
                 )
 
-        # Panel 4: Stability (Std Deviation)
-        ax = axes[1, 1]
+        # Panel 5: Stability (Std Deviation)
+        ax = axes[2, 0]
         sns.barplot(
             data=df_sorted,
             y="Dataset",
@@ -908,6 +955,9 @@ class NonLinearVisualizer:
             loc="lower right",
         )
         ax.grid(True, alpha=0.3, axis="x")
+
+        # Hide the 6th unused panel to keep the layout clean
+        axes[2, 1].axis("off")
 
         plt.tight_layout()
 
@@ -975,8 +1025,12 @@ class NonLinearVisualizer:
                         label="g(b)",
                         linewidth=2,
                     )
+                    best_params = res.best_params.copy()
+                    del best_params["var_lower_bound"]
+                    del best_params["var_upper_bound"]
+                    del best_params["use_hard_constraint"]
                     axes[i, col_offset].set_title(
-                        f"HGR-{algo.upper()} Copulas\nBest Params: {res.best_params}",
+                        f"HGR-{algo.upper()} Copulas\nBest Params: {best_params}",
                         fontweight="bold",
                     )
                     axes[i, col_offset].legend()
@@ -1013,6 +1067,10 @@ class NonLinearVisualizer:
 def main():
     """Run comprehensive non-linear relationship testing."""
 
+    use_hard_constraint = True
+    var_lower_bound = 1.0 if use_hard_constraint else 0.01
+    var_upper_bound = 1.0 if use_hard_constraint else np.inf
+
     print("\n" + "=" * 80)
     print("Non-Linear Benchmark Suite for MaxCorr")
     print("=" * 80)
@@ -1024,6 +1082,9 @@ def main():
         algorithms=["sk", "dk"],
         n_splits=5,
         random_state=42,
+        use_hard_constraint=use_hard_constraint,
+        var_lower_bound=var_lower_bound,
+        var_upper_bound=var_upper_bound,
     )
     tester.print_summary()
 
@@ -1041,6 +1102,9 @@ def main():
         # param_grid=expanded_grid,
         algorithm="dk",
         plot_transformations=True,
+        use_hard_constraint=use_hard_constraint,
+        var_lower_bound=var_lower_bound,
+        var_upper_bound=var_upper_bound,
     )
 
 

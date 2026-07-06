@@ -1,4 +1,5 @@
-from typing import Any, Type
+import builtins
+from typing import Any
 
 from maxcorr.cuda_path_utils import setup_cuda_paths
 
@@ -15,7 +16,7 @@ class TestTensorflowBackend(TestBackend):
         return TensorflowBackend()
 
     @property
-    def type(self) -> Type:
+    def type(self) -> builtins.type:
         return tf.Tensor
 
     def cast(self, v: list) -> Any:

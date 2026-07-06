@@ -4,14 +4,17 @@ Bernhard Schölkopf. The code has been partially taken and reworked from the rep
 Minimization for Continuous Features", which used it as a baseline: https://github.com/fairml-research/HGR_NN/.
 """
 
-from typing import Dict, Any, Union, Callable, Tuple
+from __future__ import annotations
+
+from collections.abc import Callable
+from typing import Any
 
 import numpy as np
 from scipy.stats import rankdata
 
 from maxcorr.backends import Backend
 from maxcorr.indicators.indicator import Indicator
-from maxcorr.typing import BackendType, SemanticsType, AlgorithmType
+from maxcorr.typing import AlgorithmType, BackendType, SemanticsType
 
 
 class RandomizedIndicator(Indicator):
@@ -26,7 +29,7 @@ class RandomizedIndicator(Indicator):
     def __init__(
         self,
         functions: Callable[[np.ndarray], np.ndarray] = np.sin,
-        backend: Union[Backend, BackendType] = "numpy",
+        backend: Backend | BackendType = "numpy",
         semantics: SemanticsType = "hgr",
         projections: int = 20,
         scale: float = 1.0 / 6,
@@ -51,7 +54,7 @@ class RandomizedIndicator(Indicator):
         :param repetitions:
             The number of times to compute the RDC and return the median (for stability).
         """
-        super(RandomizedIndicator, self).__init__(backend=backend, semantics=semantics)
+        super().__init__(backend=backend, semantics=semantics)
         self._function: Callable[[np.ndarray], np.ndarray] = functions
         self._projections: int = projections
         self._scale: float = scale
@@ -83,7 +86,7 @@ class RandomizedIndicator(Indicator):
         """
         return self._function(v)
 
-    def _compute(self, a, b) -> Tuple[Any, Dict[str, Any]]:
+    def _compute(self, a, b) -> tuple[Any, dict[str, Any]]:
         a = self.backend.squeeze(a)
         b = self.backend.squeeze(b)
         if self.backend.ndim(a) != 1 or self.backend.ndim(b) != 1:

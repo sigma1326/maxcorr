@@ -1,5 +1,9 @@
+from __future__ import annotations
+
+import builtins
 from abc import abstractmethod
-from typing import Tuple, Any, Type, Iterable, Union, Optional
+from collections.abc import Iterable
+from typing import Any, Optional
 
 import numpy as np
 
@@ -14,7 +18,7 @@ class Backend:
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
-            cls._instance = super(Backend, cls).__new__(cls, *args, **kwargs)
+            cls._instance = super().__new__(cls, *args, **kwargs)
         return cls._instance
 
     def __init__(self, backend):
@@ -38,7 +42,7 @@ class Backend:
 
     @property
     @abstractmethod
-    def type(self) -> Type:
+    def type(self) -> builtins.type:
         """The type of data handled by the backend."""
         pass
 
@@ -183,7 +187,7 @@ class Backend:
         """
         return self._backend.squeeze(v)
 
-    def reshape(self, v, shape: Union[int, Iterable[int]]) -> Any:
+    def reshape(self, v, shape: int | Iterable[int]) -> Any:
         """Reshapes the vector to the given shape.
 
         :param v:
@@ -199,7 +203,7 @@ class Backend:
         return self._backend.reshape(v, shape)
 
     # noinspection PyMethodMayBeStatic
-    def shape(self, v) -> Tuple[int, ...]:
+    def shape(self, v) -> tuple[int, ...]:
         """Gets the shape of the vector.
 
         :param v:
@@ -233,7 +237,7 @@ class Backend:
         return self.shape(v)[0]
 
     @abstractmethod
-    def stack(self, v: list, axis: Union[int, Iterable[int]] = 0) -> Any:
+    def stack(self, v: list, axis: int | Iterable[int] = 0) -> Any:
         """Stacks multiple vectors into a matrix.
 
         :param v:
@@ -322,7 +326,7 @@ class Backend:
         return self._backend.maximum(v, w)
 
     @abstractmethod
-    def mean(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def mean(self, v, axis: None | int | Iterable[int] = None) -> Any:
         """Computes the mean of the vector.
 
         :param v:
@@ -337,7 +341,7 @@ class Backend:
         pass
 
     @abstractmethod
-    def sum(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def sum(self, v, axis: None | int | Iterable[int] = None) -> Any:
         """Computes the sum of the vector.
 
         :param v:
@@ -367,7 +371,7 @@ class Backend:
         pass
 
     @abstractmethod
-    def var(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def var(self, v, axis: None | int | Iterable[int] = None) -> Any:
         """Computes the variance of the vector.
 
         :param v:
@@ -381,7 +385,7 @@ class Backend:
         """
         pass
 
-    def std(self, v, axis: Union[None, int, Iterable[int]] = None) -> Any:
+    def std(self, v, axis: None | int | Iterable[int] = None) -> Any:
         """Computes the standard deviation of the vector.
 
         :param v:
@@ -433,5 +437,35 @@ class Backend:
 
         :return:
             The optimal coefficient vector.
+        """
+        pass
+
+    @abstractmethod
+    def max(self, v, axis: None | int | Iterable[int] = None) -> Any:
+        """Computes the maximum of the vector.
+
+        :param v:
+            The input vector.
+
+        :param axis:
+            The axis (dimensions) on which to compute the maximum.
+
+        :return:
+            The maximum of the vector.
+        """
+        pass
+
+    @abstractmethod
+    def min(self, v, axis: None | int | Iterable[int] = None) -> Any:
+        """Computes the minimum of the vector.
+
+        :param v:
+            The input vector.
+
+        :param axis:
+            The axis (dimensions) on which to compute the minimum.
+
+        :return:
+            The minimum of the vector.
         """
         pass

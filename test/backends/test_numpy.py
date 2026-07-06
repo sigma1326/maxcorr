@@ -1,4 +1,5 @@
-from typing import Any, Type
+import builtins
+from typing import Any
 
 import numpy as np
 
@@ -12,7 +13,7 @@ class TestNumpyBackend(TestBackend):
         return NumpyBackend()
 
     @property
-    def type(self) -> Type:
+    def type(self) -> builtins.type:
         return np.ndarray
 
     def cast(self, v: list) -> Any:

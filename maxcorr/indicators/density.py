@@ -4,17 +4,19 @@ Clément Calauzènes, and Noureddine El Karoui. The code has been partially take
 containing the code of the paper: https://github.com/criteo-research/continuous-fairness/.
 """
 
+from __future__ import annotations
+
 import importlib.util
 from abc import ABC
 from math import pi, sqrt
-from typing import Union, Any, Tuple, Dict
+from typing import Any
 
 import numpy as np
 
 from maxcorr.backends import Backend, TorchBackend
 from maxcorr.cuda_path_utils import setup_cuda_paths
 from maxcorr.indicators.indicator import Indicator
-from maxcorr.typing import BackendType, SemanticsType, AlgorithmType
+from maxcorr.typing import AlgorithmType, BackendType, SemanticsType
 
 
 class DensityIndicator(Indicator, ABC):
@@ -28,7 +30,7 @@ class DensityIndicator(Indicator, ABC):
 
     def __init__(
         self,
-        backend: Union[Backend, BackendType] = "numpy",
+        backend: Backend | BackendType = "numpy",
         semantics: SemanticsType = "hgr",
         chi_square: bool = False,
         damping: float = 1e-9,
@@ -46,7 +48,7 @@ class DensityIndicator(Indicator, ABC):
         :param damping:
             The correction factor used in the computation of joint correlation.
         """
-        super(DensityIndicator, self).__init__(backend=backend, semantics=semantics)
+        super().__init__(backend=backend, semantics=semantics)
         if importlib.util.find_spec("torch") is None:
             raise ModuleNotFoundError(
                 "DensityIndicator relies on pytorch independently from any chosen backend. "
@@ -65,7 +67,7 @@ class DensityIndicator(Indicator, ABC):
         """The correction factor used in the computation of joint correlation."""
         return self._damping
 
-    def _compute(self, a, b) -> Tuple[Any, Dict[str, Any]]:
+    def _compute(self, a, b) -> tuple[Any, dict[str, Any]]:
         setup_cuda_paths()
         import torch
 
@@ -192,7 +194,7 @@ class DensityIndicator(Indicator, ABC):
         marginal_xz = h3d.sum(dim=1).unsqueeze(1)
         marginal_yz = h3d.sum(dim=0).unsqueeze(0)
         Q = h3d / (torch.sqrt(marginal_xz) * torch.sqrt(marginal_yz))
-        return np.array(([torch.svd(Q[:, :, i])[1][1] for i in range(Q.shape[2])]))
+        return np.array([torch.svd(Q[:, :, i])[1][1] for i in range(Q.shape[2])])
 
     # noinspection PyPep8Naming,PyRedundantParentheses,DuplicatedCode
     @staticmethod
